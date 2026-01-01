@@ -1,5 +1,5 @@
 /**
- * Type definitions for Media Audio Toolkit
+ * Type definitions for Multimedia Toolkit
  */
 
 // Supported input formats

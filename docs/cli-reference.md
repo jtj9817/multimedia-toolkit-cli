@@ -1,6 +1,6 @@
 # CLI Reference
 
-Complete command-line interface reference for Media Audio Toolkit.
+Complete command-line interface reference for Multimedia Toolkit.
 
 ## Table of Contents
 

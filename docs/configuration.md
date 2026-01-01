@@ -1,6 +1,6 @@
 # Configuration Guide
 
-Complete guide to configuring Media Audio Toolkit's behavior and default settings.
+Complete guide to configuring Multimedia Toolkit's behavior and default settings.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Complete guide to configuring Media Audio Toolkit's behavior and default setting
 
 ### Primary Configuration File
 
-**Location**: `~/.media-audio-toolkit/config.json`
+**Location**: `~/.multimedia-toolkit/config.json`
 
 **Format**: JSON
 
@@ -40,13 +40,13 @@ Complete guide to configuring Media Audio Toolkit's behavior and default setting
   "ffmpegPath": "ffmpeg",
   "ffprobePath": "ffprobe",
   "maxConcurrentJobs": 2,
-  "tempDir": "/home/user/.media-audio-toolkit/temp"
+  "tempDir": "/home/user/.multimedia-toolkit/temp"
 }
 ```
 
 ### Database Configuration
 
-**Location**: `~/.media-audio-toolkit/data.db`
+**Location**: `~/.multimedia-toolkit/data.db`
 
 **Purpose**:
 - Backup configuration storage
@@ -270,7 +270,7 @@ Currently not supported, but planned for future releases.
 
 **Default**: `true`
 
-**Description**: Log all operations to files in `~/.media-audio-toolkit/logs/`
+**Description**: Log all operations to files in `~/.multimedia-toolkit/logs/`
 
 **Example**:
 ```json
@@ -296,7 +296,7 @@ Currently not supported, but planned for future releases.
 
 **Description**: Format for log files
 
-**JSON Example** (`~/.media-audio-toolkit/logs/2025-01-15.json`):
+**JSON Example** (`~/.multimedia-toolkit/logs/2025-01-15.json`):
 ```json
 {
   "jobId": "a1b2c3d4-...",
@@ -309,7 +309,7 @@ Currently not supported, but planned for future releases.
 }
 ```
 
-**CSV Example** (`~/.media-audio-toolkit/logs/2025-01-15.csv`):
+**CSV Example** (`~/.multimedia-toolkit/logs/2025-01-15.csv`):
 ```csv
 jobId,inputPath,outputPath,outputFormat,qualityPreset,status,createdAt
 a1b2c3d4-...,/path/to/video.mp4,/path/to/audio.mp3,mp3,music_medium,completed,2025-01-15T10:30:00.000Z
@@ -385,13 +385,13 @@ a1b2c3d4-...,/path/to/video.mp4,/path/to/audio.mp3,mp3,music_medium,completed,20
 
 **Type**: String (path)
 
-**Default**: `~/.media-audio-toolkit/temp`
+**Default**: `~/.multimedia-toolkit/temp`
 
 **Description**: Directory for temporary files during processing
 
 **Example**:
 ```json
-"tempDir": "/tmp/media-audio-toolkit"
+"tempDir": "/tmp/multimedia-toolkit"
 ```
 
 **Usage**:
@@ -436,10 +436,10 @@ bun run src/index.ts --interactive
 
 ```bash
 # View configuration file
-cat ~/.media-audio-toolkit/config.json
+cat ~/.multimedia-toolkit/config.json
 
 # Edit with your favorite editor
-nano ~/.media-audio-toolkit/config.json
+nano ~/.multimedia-toolkit/config.json
 ```
 
 ## Modifying Configuration
@@ -497,7 +497,7 @@ Enter your choice: music_high
 
 ```bash
 # Open in editor
-nano ~/.media-audio-toolkit/config.json
+nano ~/.multimedia-toolkit/config.json
 
 # Make changes, save, exit
 # Configuration loads automatically on next run
@@ -521,7 +521,7 @@ nano ~/.media-audio-toolkit/config.json
 
 ```bash
 # Remove configuration file
-rm ~/.media-audio-toolkit/config.json
+rm ~/.multimedia-toolkit/config.json
 
 # Next run will create new default configuration
 bun run src/index.ts --config
@@ -690,7 +690,7 @@ For saving directly to NAS or network storage:
 ```json
 {
   "defaultOutputDir": "/mnt/nas/Audio",
-  "tempDir": "/tmp/media-audio-toolkit"
+  "tempDir": "/tmp/multimedia-toolkit"
 }
 ```
 
@@ -762,10 +762,10 @@ For systems with more resources:
 **Check**:
 ```bash
 # Verify file exists and is readable
-cat ~/.media-audio-toolkit/config.json
+cat ~/.multimedia-toolkit/config.json
 
 # Check JSON syntax
-bun run -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME + '/.media-audio-toolkit/config.json', 'utf-8')))"
+bun run -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME + '/.multimedia-toolkit/config.json', 'utf-8')))"
 ```
 
 ### Configuration Resets on Every Run
@@ -774,7 +774,7 @@ bun run -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME +
 
 **Fix**:
 ```bash
-chmod 644 ~/.media-audio-toolkit/config.json
+chmod 644 ~/.multimedia-toolkit/config.json
 ```
 
 ### Custom Tool Paths Not Working

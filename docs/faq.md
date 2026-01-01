@@ -1,6 +1,6 @@
 # Frequently Asked Questions (FAQ)
 
-Common questions and answers about Media Audio Toolkit.
+Common questions and answers about Multimedia Toolkit.
 
 ## Table of Contents
 
@@ -15,9 +15,9 @@ Common questions and answers about Media Audio Toolkit.
 
 ## General
 
-### What is Media Audio Toolkit?
+### What is Multimedia Toolkit?
 
-Media Audio Toolkit is a comprehensive command-line tool for extracting and converting audio from video and audio files. It combines the functionality of multiple shell scripts into a unified, TypeScript-based application with both interactive and CLI modes.
+Multimedia Toolkit is a comprehensive command-line tool for extracting and converting audio from video and audio files. It combines the functionality of multiple shell scripts into a unified, TypeScript-based application with both interactive and CLI modes.
 
 ### Why use this instead of FFmpeg directly?
 
@@ -32,7 +32,7 @@ Media Audio Toolkit is a comprehensive command-line tool for extracting and conv
 
 ### Is it free and open source?
 
-Yes! Media Audio Toolkit is released under the MIT license.
+Yes! Multimedia Toolkit is released under the MIT license.
 
 ### What platforms does it support?
 
@@ -69,10 +69,10 @@ No! The toolkit uses [Bun](https://bun.sh), a modern JavaScript runtime that's f
 
 Yes:
 ```bash
-bun install -g media-audio-toolkit
+bun install -g multimedia-toolkit
 
 # Then run from anywhere
-media-audio-toolkit --help
+multimedia-toolkit --help
 ```
 
 ## Usage
@@ -142,7 +142,7 @@ AudioExtracted/
 
 **Change location**:
 - Interactive: [9] Settings > [1] Change output directory
-- Config file: Edit `~/.media-audio-toolkit/config.json`
+- Config file: Edit `~/.multimedia-toolkit/config.json`
 
 ### How do I clip a specific part of a video?
 
@@ -341,7 +341,7 @@ Yes! CLI mode is designed for scripting:
 ```bash
 #!/bin/bash
 for video in *.mp4; do
-  bun run /path/to/media-audio-toolkit/src/index.ts "$video" -f mp3 -q music_high
+  bun run /path/to/multimedia-toolkit/src/index.ts "$video" -f mp3 -q music_high
 done
 ```
 
@@ -405,20 +405,20 @@ See [Troubleshooting Guide](./troubleshooting.md#output-file-is-silent)
 
 **Check permissions**:
 ```bash
-ls -la ~/.media-audio-toolkit/
+ls -la ~/.multimedia-toolkit/
 ```
 
 **Fix**:
 ```bash
-chmod 755 ~/.media-audio-toolkit
-chmod 644 ~/.media-audio-toolkit/config.json
+chmod 755 ~/.multimedia-toolkit
+chmod 644 ~/.multimedia-toolkit/config.json
 ```
 
 ## Still Have Questions?
 
 - **Read the documentation**: Start with [Getting Started](./getting-started.md)
 - **Check troubleshooting**: [Troubleshooting Guide](./troubleshooting.md)
-- **Search issues**: [GitHub Issues](https://github.com/your-repo/media-audio-toolkit/issues)
+- **Search issues**: [GitHub Issues](https://github.com/your-repo/multimedia-toolkit/issues)
 - **Ask a question**: Open a new issue or discussion
 
 ---

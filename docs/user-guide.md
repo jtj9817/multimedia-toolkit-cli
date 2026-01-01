@@ -1,6 +1,6 @@
 # User Guide
 
-Complete guide to using Media Audio Toolkit for audio extraction and conversion.
+Complete guide to using Multimedia Toolkit for audio extraction and conversion.
 
 ## Table of Contents
 
@@ -416,7 +416,7 @@ bun run src/index.ts --interactive
 bun run src/index.ts --interactive
 # [7] Manage Presets > [5] Export Presets
 
-# Presets are saved in: ~/.media-audio-toolkit/presets.db
+# Presets are saved in: ~/.multimedia-toolkit/presets.db
 # Export creates: ~/Music/AudioExtracted/presets_export_<timestamp>.json
 ```
 
@@ -488,7 +488,7 @@ bun run src/index.ts --stats
 │ Failed: 3                               │
 │ Total output: 4.2 GB                    │
 │ Today's conversions: 5                  │
-│ Log directory: ~/.media-audio-toolkit/ │
+│ Log directory: ~/.multimedia-toolkit/ │
 └─────────────────────────────────────────┘
 ```
 

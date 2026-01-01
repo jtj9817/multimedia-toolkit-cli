@@ -1,5 +1,5 @@
 {
-  "name": "media-audio-toolkit",
+  "name": "multimedia-toolkit",
   "version": "1.0.0",
   "description": "Comprehensive audio extraction and conversion toolkit for media files",
   "main": "src/index.ts",

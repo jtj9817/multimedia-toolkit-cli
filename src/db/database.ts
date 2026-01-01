@@ -8,7 +8,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import type { ProcessRecord, ClipPreset, AppConfig } from '../types';
 
-const DATA_DIR = join(homedir(), '.media-audio-toolkit');
+const DATA_DIR = join(homedir(), '.multimedia-toolkit');
 const DB_PATH = join(DATA_DIR, 'toolkit.db');
 
 export class DatabaseManager {

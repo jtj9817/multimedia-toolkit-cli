@@ -1,6 +1,6 @@
 # Development Guide
 
-Guide for developers who want to contribute to or extend Media Audio Toolkit.
+Guide for developers who want to contribute to or extend Multimedia Toolkit.
 
 ## Table of Contents
 
@@ -27,8 +27,8 @@ Guide for developers who want to contribute to or extend Media Audio Toolkit.
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/media-audio-toolkit.git
-cd media-audio-toolkit
+git clone https://github.com/your-username/multimedia-toolkit.git
+cd multimedia-toolkit
 
 # Install dependencies
 bun install
@@ -96,7 +96,7 @@ The project uses `tsconfig.json`:
 ## Project Structure
 
 ```
-media-audio-toolkit/
+multimedia-toolkit/
 ├── src/                    # Source code
 │   ├── index.ts           # Main entry point
 │   ├── types.ts           # Type definitions
@@ -435,7 +435,7 @@ Create `.vscode/launch.json`:
     {
       "type": "bun",
       "request": "launch",
-      "name": "Debug Media Audio Toolkit",
+      "name": "Debug Multimedia Toolkit",
       "program": "${workspaceFolder}/src/index.ts",
       "args": ["--interactive"],
       "cwd": "${workspaceFolder}",

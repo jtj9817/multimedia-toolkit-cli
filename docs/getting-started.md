@@ -1,6 +1,6 @@
-# Getting Started with Media Audio Toolkit
+# Getting Started with Multimedia Toolkit
 
-This guide will help you install and start using Media Audio Toolkit in just a few minutes.
+This guide will help you install and start using Multimedia Toolkit in just a few minutes.
 
 ## Table of Contents
 
@@ -12,7 +12,7 @@ This guide will help you install and start using Media Audio Toolkit in just a f
 
 ## Prerequisites
 
-Before installing Media Audio Toolkit, ensure you have the following:
+Before installing Multimedia Toolkit, ensure you have the following:
 
 ### Required
 
@@ -73,10 +73,10 @@ Before installing Media Audio Toolkit, ensure you have the following:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/media-audio-toolkit.git
+git clone https://github.com/your-username/multimedia-toolkit.git
 
 # Navigate to directory
-cd media-audio-toolkit
+cd multimedia-toolkit
 
 # Install dependencies
 bun install
@@ -89,10 +89,10 @@ chmod +x src/index.ts
 
 ```bash
 # Install globally with Bun
-bun install -g media-audio-toolkit
+bun install -g multimedia-toolkit
 
 # Now you can run it from anywhere
-media-audio-toolkit --help
+multimedia-toolkit --help
 ```
 
 ### Verify Installation
@@ -120,7 +120,7 @@ You'll be greeted with a menu:
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║              Media Audio Toolkit v1.0.0                      ║
+║              Multimedia Toolkit v1.0.0                      ║
 ║     Comprehensive Audio Extraction & Conversion Tool          ║
 ╚══════════════════════════════════════════════════════════════╝
 

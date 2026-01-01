@@ -1,6 +1,6 @@
-# Media Audio Toolkit Documentation
+# Multimedia Toolkit Documentation
 
-Welcome to the comprehensive documentation for Media Audio Toolkit - a powerful Bun.js-based audio extraction and conversion tool.
+Welcome to the comprehensive documentation for Multimedia Toolkit - a powerful Bun.js-based audio extraction and conversion tool.
 
 ## 📚 Documentation Index
 
@@ -58,7 +58,7 @@ Welcome to the comprehensive documentation for Media Audio Toolkit - a powerful 
 ### Getting Help
 - [Troubleshooting Guide](./troubleshooting.md) - Start here if something isn't working
 - [FAQ](./faq.md) - Common questions answered
-- [GitHub Issues](https://github.com/your-repo/media-audio-toolkit/issues) - Report bugs or request features
+- [GitHub Issues](https://github.com/your-repo/multimedia-toolkit/issues) - Report bugs or request features
 
 ## 📖 Documentation Conventions
 
@@ -72,7 +72,7 @@ Throughout this documentation, you'll see these indicators:
 
 ## Project Overview
 
-Media Audio Toolkit combines the functionality of multiple shell scripts into a unified, feature-rich application:
+Multimedia Toolkit combines the functionality of multiple shell scripts into a unified, feature-rich application:
 
 - **Extract audio** from video files (MP4, MKV, AVI, MOV, WEBM)
 - **Download and convert** from URLs (YouTube, streaming sites)

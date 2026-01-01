@@ -1,6 +1,6 @@
 # API Reference
 
-Complete reference for all modules, classes, and functions in Media Audio Toolkit.
+Complete reference for all modules, classes, and functions in Multimedia Toolkit.
 
 ## Table of Contents
 

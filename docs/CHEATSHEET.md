@@ -1,4 +1,4 @@
-# Media Audio Toolkit Cheat Sheet
+# Multimedia Toolkit Cheat Sheet
 
 Quick reference for common commands and operations.
 
@@ -122,7 +122,7 @@ bun run src/index.ts --interactive
 # Select [9] Settings
 ```
 
-**Config file location**: `~/.media-audio-toolkit/config.json`
+**Config file location**: `~/.multimedia-toolkit/config.json`
 
 ## 📊 Information Commands
 
@@ -245,10 +245,10 @@ sudo apt install fzf
 chmod +x src/index.ts
 
 # Check configuration
-cat ~/.media-audio-toolkit/config.json
+cat ~/.multimedia-toolkit/config.json
 
 # View logs
-ls -la ~/.media-audio-toolkit/logs/
+ls -la ~/.multimedia-toolkit/logs/
 ```
 
 ## 💡 Pro Tips

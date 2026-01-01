@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Media Audio Toolkit - Main Entry Point
+ * Multimedia Toolkit - Main Entry Point
  * A comprehensive audio extraction and conversion tool
  *
  * Combines functionality from:
@@ -95,13 +95,13 @@ function parseArguments() {
 function showHelp(): void {
   console.log(`
 ${'\x1b[36m'}╔══════════════════════════════════════════════════════════════╗
-║              Media Audio Toolkit v${VERSION}                      ║
+║              Multimedia Toolkit v${VERSION}                           ║
 ║     Comprehensive Audio Extraction & Conversion Tool          ║
 ╚══════════════════════════════════════════════════════════════╝${'\x1b[0m'}
 
 ${'\x1b[33m'}USAGE:${'\x1b[0m'}
-  media-audio-toolkit [options] [input-files...]
-  media-audio-toolkit --interactive
+  multimedia-toolkit [options] [input-files...]
+  multimedia-toolkit --interactive
 
 ${'\x1b[33m'}INPUT OPTIONS:${'\x1b[0m'}
   -i, --input <file>      Input file(s), can be specified multiple times
@@ -150,24 +150,24 @@ ${'\x1b[33m'}OTHER:${'\x1b[0m'}
 
 ${'\x1b[33m'}EXAMPLES:${'\x1b[0m'}
   # Basic conversion
-  media-audio-toolkit video.mp4
+  multimedia-toolkit video.mp4
 
   # Extract with clipping
-  media-audio-toolkit -i video.mkv -s 00:01:30 -d 60 -o clip.mp3
+  multimedia-toolkit -i video.mkv -s 00:01:30 -d 60 -o clip.mp3
 
   # Download and extract from YouTube
-  media-audio-toolkit -u "https://youtube.com/watch?v=..." -f mp3
+  multimedia-toolkit -u "https://youtube.com/watch?v=..." -f mp3
 
   # Batch process directory
-  media-audio-toolkit -b --input ./videos -f mp3 -q music_high
+  multimedia-toolkit -b --input ./videos -f mp3 -q music_high
 
   # Interactive mode
-  media-audio-toolkit --interactive
+  multimedia-toolkit --interactive
 
   # Extract all chapters
-  media-audio-toolkit -i podcast.mp4 --chapters -o ./chapters/
+  multimedia-toolkit -i podcast.mp4 --chapters -o ./chapters/
 
-For more information, visit: https://github.com/your-repo/media-audio-toolkit
+For more information, visit: https://github.com/your-repo/multimedia-toolkit
 `);
 }
 
@@ -175,7 +175,7 @@ For more information, visit: https://github.com/your-repo/media-audio-toolkit
 
 async function runInteractiveMode(): Promise<void> {
   cli.clear();
-  logger.header('Media Audio Toolkit - Interactive Mode');
+  logger.header('Multimedia Toolkit - Interactive Mode');
 
   // Check tools
   const toolCheck = await config.validateTools();
@@ -1265,7 +1265,7 @@ async function main(): Promise<void> {
 
   // Handle simple flags
   if (values.version) {
-    console.log(`Media Audio Toolkit v${VERSION}`);
+    console.log(`Multimedia Toolkit v${VERSION}`);
     process.exit(0);
   }
 

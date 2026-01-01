@@ -1,6 +1,6 @@
 # Documentation Index
 
-Complete index of all documentation for Media Audio Toolkit.
+Complete index of all documentation for Multimedia Toolkit.
 
 ## 📊 Documentation Statistics
 
@@ -276,8 +276,8 @@ Complete index of all documentation for Media Audio Toolkit.
 ## 📬 Feedback
 
 Found an error or want to improve the docs?
-- Open an issue: [GitHub Issues](https://github.com/your-repo/media-audio-toolkit/issues)
-- Suggest improvements: [Discussions](https://github.com/your-repo/media-audio-toolkit/discussions)
+- Open an issue: [GitHub Issues](https://github.com/your-repo/multimedia-toolkit/issues)
+- Suggest improvements: [Discussions](https://github.com/your-repo/multimedia-toolkit/discussions)
 - Contribute: See [Development Guide](./development.md)
 
 ---

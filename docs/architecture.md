@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Technical documentation of Media Audio Toolkit's system design, module structure, and data flow.
+Technical documentation of Multimedia Toolkit's system design, module structure, and data flow.
 
 ## Table of Contents
 
@@ -202,7 +202,7 @@ class ConfigManager {
 ```
 
 **Storage**:
-- Primary: `~/.media-audio-toolkit/config.json`
+- Primary: `~/.multimedia-toolkit/config.json`
 - Backup: SQLite database
 - Auto-creates directories on first run
 
@@ -289,7 +289,7 @@ class OutputOrganizer {
 }
 ```
 
-**Log Location**: `~/.media-audio-toolkit/logs/`
+**Log Location**: `~/.multimedia-toolkit/logs/`
 
 ### 8. Presets Module (`utils/presets.ts`)
 

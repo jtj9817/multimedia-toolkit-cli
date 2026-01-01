@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { db } from '../db/database';
 import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
 
-const CONFIG_DIR = join(homedir(), '.media-audio-toolkit');
+const CONFIG_DIR = join(homedir(), '.multimedia-toolkit');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 // Default configuration

@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Solutions to common issues when using Media Audio Toolkit.
+Solutions to common issues when using Multimedia Toolkit.
 
 ## Table of Contents
 
@@ -44,7 +44,7 @@ bun --version
 **Solution**:
 ```bash
 # Navigate to project directory
-cd media-audio-toolkit
+cd multimedia-toolkit
 
 # Install dependencies
 bun install
@@ -198,7 +198,7 @@ ls
 2. Navigate to directory first:
    ```bash
    cd /directory/with/video
-   bun run ../media-audio-toolkit/src/index.ts video.mp4
+   bun run ../multimedia-toolkit/src/index.ts video.mp4
    ```
 
 3. Use FZF in interactive mode to browse and select files
@@ -572,17 +572,17 @@ bun run src/index.ts --interactive
 **Diagnosis**:
 ```bash
 # Check config file
-cat ~/.media-audio-toolkit/config.json
+cat ~/.multimedia-toolkit/config.json
 
 # Check permissions
-ls -l ~/.media-audio-toolkit/config.json
+ls -l ~/.multimedia-toolkit/config.json
 ```
 
 **Solutions**:
 1. Ensure directory is writable:
    ```bash
-   chmod 755 ~/.media-audio-toolkit
-   chmod 644 ~/.media-audio-toolkit/config.json
+   chmod 755 ~/.multimedia-toolkit
+   chmod 644 ~/.multimedia-toolkit/config.json
    ```
 
 2. Check disk not full:
@@ -599,10 +599,10 @@ ls -l ~/.media-audio-toolkit/config.json
 **Fix**:
 ```bash
 # Validate JSON
-cat ~/.media-audio-toolkit/config.json | json_pp
+cat ~/.multimedia-toolkit/config.json | json_pp
 
 # If invalid, delete and regenerate
-rm ~/.media-audio-toolkit/config.json
+rm ~/.multimedia-toolkit/config.json
 bun run src/index.ts --config
 ```
 
@@ -666,7 +666,7 @@ View recent logs:
 bun run src/index.ts --list-history
 
 # View log files
-cat ~/.media-audio-toolkit/logs/$(date +%Y-%m-%d).json
+cat ~/.multimedia-toolkit/logs/$(date +%Y-%m-%d).json
 ```
 
 ### Collect Debug Information
@@ -691,7 +691,7 @@ When reporting issues, include:
 
 5. **Configuration**:
    ```bash
-   cat ~/.media-audio-toolkit/config.json
+   cat ~/.multimedia-toolkit/config.json
    ```
 
 ---
@@ -718,7 +718,7 @@ When reporting issues, include:
 
 ## Still Having Issues?
 
-1. **Search Existing Issues**: [GitHub Issues](https://github.com/your-repo/media-audio-toolkit/issues)
+1. **Search Existing Issues**: [GitHub Issues](https://github.com/your-repo/multimedia-toolkit/issues)
 
 2. **Ask for Help**: Open a new issue with:
    - Description of problem

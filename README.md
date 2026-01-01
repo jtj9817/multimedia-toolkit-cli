@@ -1,4 +1,4 @@
-# Media Audio Toolkit
+# Multimedia Toolkit
 
 A comprehensive Bun.js-based audio extraction and conversion tool that combines functionality from multiple shell scripts into a unified, feature-rich application.
 
@@ -9,7 +9,7 @@ A comprehensive Bun.js-based audio extraction and conversion tool that combines 
 
 ## 🎵 Overview
 
-Media Audio Toolkit is a powerful command-line tool for extracting and converting audio from video and audio files. It features both an interactive menu-driven interface and a scriptable CLI mode, making it perfect for both casual users and automation workflows.
+Multimedia Toolkit is a powerful command-line tool for extracting and converting audio from video and audio files. It features both an interactive menu-driven interface and a scriptable CLI mode, making it perfect for both casual users and automation workflows.
 
 **What makes it special:**
 - 🎯 **Interactive & CLI modes** - User-friendly menus or scriptable commands
@@ -95,12 +95,12 @@ sudo apt install ffmpeg
 brew install ffmpeg
 ```
 
-### 2. Install Media Audio Toolkit
+### 2. Install Multimedia Toolkit
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/media-audio-toolkit.git
-cd media-audio-toolkit
+git clone https://github.com/your-username/multimedia-toolkit.git
+cd multimedia-toolkit
 
 # Install dependencies
 bun install
@@ -155,7 +155,7 @@ bun run src/index.ts
 **You'll see:**
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║              Media Audio Toolkit v1.0.0                      ║
+║              Multimedia Toolkit v1.0.0                      ║
 ║     Comprehensive Audio Extraction & Conversion Tool          ║
 ╚══════════════════════════════════════════════════════════════╝
 
@@ -286,7 +286,7 @@ bun run src/index.ts -i video.mp4 -p "my-preset"
 
 ## ⚙️ Configuration
 
-Configuration is stored in `~/.media-audio-toolkit/config.json` and SQLite database.
+Configuration is stored in `~/.multimedia-toolkit/config.json` and SQLite database.
 
 **View current configuration:**
 ```bash
@@ -300,7 +300,7 @@ bun run src/index.ts --interactive
 # Select [9] Settings
 
 # Or edit directly
-nano ~/.media-audio-toolkit/config.json
+nano ~/.multimedia-toolkit/config.json
 ```
 
 **Default settings:**
@@ -315,7 +315,7 @@ nano ~/.media-audio-toolkit/config.json
 ## 📁 Project Structure
 
 ```
-media-audio-toolkit/
+multimedia-toolkit/
 ├── src/
 │   ├── index.ts          # Main entry point
 │   ├── types.ts          # TypeScript type definitions
@@ -479,7 +479,7 @@ sudo apt install fzf
 **More help:**
 - [Troubleshooting Guide](./docs/troubleshooting.md)
 - [FAQ](./docs/faq.md)
-- [GitHub Issues](https://github.com/your-repo/media-audio-toolkit/issues)
+- [GitHub Issues](https://github.com/your-repo/multimedia-toolkit/issues)
 
 ---
 
@@ -510,8 +510,8 @@ Built with:
 ## 📞 Support
 
 - 📖 **Documentation**: [docs/](./docs/)
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-repo/media-audio-toolkit/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-repo/media-audio-toolkit/discussions)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-repo/multimedia-toolkit/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-repo/multimedia-toolkit/discussions)
 - ❓ **FAQ**: [docs/faq.md](./docs/faq.md)
 
 ---
