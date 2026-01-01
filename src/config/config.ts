@@ -7,7 +7,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { db } from '../db/database';
-import type { AppConfig, OutputFormat, VideoOutputFormat } from '../types';
+import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
 
 const CONFIG_DIR = join(homedir(), '.media-audio-toolkit');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
@@ -20,6 +20,10 @@ const DEFAULT_CONFIG: AppConfig = {
   defaultVideoFormat: 'webm',
   defaultVideoPreset: 'any-to-webm',
   defaultVideoResolution: '1080p',
+  // GIF/WebP defaults
+  defaultGifWebpPreset: 'webp-discord',
+  defaultGifFps: 30,
+  defaultWebpQuality: 80,
   autoOrganize: true,
   organizeBy: 'date',
   preserveMetadata: true,
@@ -217,7 +221,7 @@ class ConfigManager {
   }
 
   // Generate organized output path based on settings
-  getOrganizedOutputPath(baseName: string, format: OutputFormat | VideoOutputFormat, source?: string): string {
+  getOrganizedOutputPath(baseName: string, format: OutputFormat | VideoOutputFormat | ImageOutputFormat, source?: string): string {
     let subDir = '';
 
     if (this.config.autoOrganize) {
@@ -266,6 +270,9 @@ class ConfigManager {
     console.log(`│ Video Format:     ${this.config.defaultVideoFormat}`);
     console.log(`│ Video Preset:     ${this.config.defaultVideoPreset}`);
     console.log(`│ Video Resolution: ${this.config.defaultVideoResolution}`);
+    console.log(`│ GIF/WebP Preset:  ${this.config.defaultGifWebpPreset}`);
+    console.log(`│ GIF FPS:          ${this.config.defaultGifFps}`);
+    console.log(`│ WebP Quality:     ${this.config.defaultWebpQuality}`);
     console.log(`│ Auto Organize:    ${this.config.autoOrganize}`);
     console.log(`│ Organize By:      ${this.config.organizeBy}`);
     console.log(`│ Preserve Meta:    ${this.config.preserveMetadata}`);

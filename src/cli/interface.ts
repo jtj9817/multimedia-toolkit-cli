@@ -4,9 +4,10 @@
  */
 
 import * as readline from 'readline';
-import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoResolution, VideoOutputFormat } from '../types';
-import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '../types';
+import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoResolution, VideoOutputFormat, GifWebpPresetKey, ImageOutputFormat, GifWebpConversionOptions } from '../types';
+import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS, IMAGE_OUTPUT_FORMATS } from '../types';
 import { VIDEO_TRANSCODE_PRESETS } from '../media/video-presets';
+import { GIF_WEBP_PRESETS, FPS_OPTIONS, WIDTH_OPTIONS, WEBP_QUALITY_OPTIONS, GIF_DITHER_OPTIONS, getDefaultGifWebpOptions } from '../media/gif-webp-presets';
 import { fzfSelector } from '../utils/fzf';
 
 // ANSI color codes
@@ -355,6 +356,137 @@ export class CLIInterface {
 
     const selection = await this.menu('Select Video Output Format', options);
     return selection as VideoOutputFormat;
+  }
+
+  /**
+   * Select image output format (GIF or WebP)
+   */
+  async selectImageFormat(): Promise<ImageOutputFormat> {
+    const options: MenuOption[] = [
+      { key: 'gif', label: 'GIF', description: 'Universal support, larger files', action: async () => {} },
+      { key: 'webp', label: 'WebP', description: 'Better quality/size, modern format', action: async () => {} }
+    ];
+
+    const selection = await this.menu('Select Image Format', options);
+    return selection as ImageOutputFormat;
+  }
+
+  /**
+   * Select GIF/WebP conversion preset
+   */
+  async selectGifWebpPreset(format: ImageOutputFormat): Promise<GifWebpPresetKey | 'custom'> {
+    // Filter presets by format
+    const formatPresets = Object.values(GIF_WEBP_PRESETS).filter(p => p.format === format);
+
+    const options: MenuOption[] = [
+      ...formatPresets.map(preset => ({
+        key: preset.key,
+        label: preset.label,
+        description: preset.description,
+        action: async () => {}
+      })),
+      { key: 'custom', label: 'Custom Settings', description: 'Configure your own settings', action: async () => {} }
+    ];
+
+    const selection = await this.menu(`Select ${format.toUpperCase()} Preset`, options);
+    return selection as GifWebpPresetKey | 'custom';
+  }
+
+  /**
+   * Configure custom GIF/WebP settings
+   */
+  async configureGifWebpOptions(format: ImageOutputFormat): Promise<Partial<GifWebpConversionOptions>> {
+    const defaults = getDefaultGifWebpOptions(format);
+    const options: Partial<GifWebpConversionOptions> = { format };
+
+    console.log(`\n${c.cyan}Configure ${format.toUpperCase()} Settings${c.reset}\n`);
+
+    // FPS selection
+    const fpsOptions: MenuOption[] = FPS_OPTIONS.map(opt => ({
+      key: String(opt.value),
+      label: opt.label,
+      description: opt.description,
+      action: async () => {}
+    }));
+    const fpsChoice = await this.menu('Frame Rate', fpsOptions);
+    options.fps = parseInt(fpsChoice) || defaults.fps;
+
+    // Width selection
+    const widthOptions: MenuOption[] = WIDTH_OPTIONS.map(opt => ({
+      key: String(opt.value),
+      label: opt.label,
+      description: opt.description,
+      action: async () => {}
+    }));
+    const widthChoice = await this.menu('Output Width', widthOptions);
+    const widthValue = parseInt(widthChoice);
+    if (widthValue > 0) {
+      options.width = widthValue;
+    }
+
+    // Format-specific options
+    if (format === 'webp') {
+      // Quality selection
+      const qualityOptions: MenuOption[] = WEBP_QUALITY_OPTIONS.map(opt => ({
+        key: String(opt.value),
+        label: opt.label,
+        description: opt.description,
+        action: async () => {}
+      }));
+      const qualityChoice = await this.menu('Quality', qualityOptions);
+      options.quality = parseInt(qualityChoice) || defaults.quality;
+
+      // Lossless option
+      options.lossless = await this.confirm('Use lossless compression?', false);
+
+      // Compression level
+      const compressionChoice = await this.prompt('Compression level (0-6, higher=slower/smaller)', '4');
+      options.compression = Math.min(6, Math.max(0, parseInt(compressionChoice) || 4));
+    } else {
+      // GIF-specific: Dithering
+      const ditherOptions: MenuOption[] = GIF_DITHER_OPTIONS.map(opt => ({
+        key: opt.value,
+        label: opt.label,
+        description: opt.description,
+        action: async () => {}
+      }));
+      const ditherChoice = await this.menu('Dithering Algorithm', ditherOptions);
+      options.dither = ditherChoice as 'none' | 'floyd_steinberg' | 'sierra2' | 'bayer';
+
+      // Palette mode
+      const paletteOptions: MenuOption[] = [
+        { key: 'diff', label: 'Diff Mode', description: 'Optimizes for animation (recommended)', action: async () => {} },
+        { key: 'full', label: 'Full Mode', description: 'Uses all frames for palette', action: async () => {} }
+      ];
+      const paletteChoice = await this.menu('Palette Mode', paletteOptions);
+      options.paletteMode = paletteChoice as 'full' | 'diff';
+    }
+
+    // Loop options
+    options.loop = await this.confirm('Loop animation?', true);
+    if (options.loop) {
+      const loopChoice = await this.prompt('Loop count (0 = infinite)', '0');
+      options.loopCount = parseInt(loopChoice) || 0;
+    }
+
+    return options;
+  }
+
+  /**
+   * Prompt for clip/trim settings for GIF/WebP
+   */
+  async promptGifWebpClip(): Promise<{ startTime?: string; duration?: number }> {
+    const useClip = await this.confirm('Clip a specific section?', false);
+
+    if (!useClip) {
+      return {};
+    }
+
+    const startTime = await this.promptTime('Start time', true);
+    const durationStr = await this.prompt('Duration in seconds (leave empty for rest of video)');
+    const duration = durationStr ? parseFloat(durationStr) : undefined;
+
+    return { startTime, duration };
   }
 
   /**

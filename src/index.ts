@@ -24,9 +24,10 @@ import { presets } from './utils/presets';
 import { logger, organizer } from './utils/logger';
 import { visualizer } from './utils/visualizer';
 import { cli } from './cli/interface';
-import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoOutputFormat, VideoResolution, VideoQualityMode } from './types';
+import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoOutputFormat, VideoResolution, VideoQualityMode, GifWebpPresetKey, ImageOutputFormat, GifWebpConversionOptions } from './types';
 import { QUALITY_PRESETS, OUTPUT_FORMATS } from './types';
 import { VIDEO_TRANSCODE_PRESETS } from './media/video-presets';
+import { GIF_WEBP_PRESETS } from './media/gif-webp-presets';
 
 const VERSION = '1.0.0';
 
@@ -197,9 +198,10 @@ async function runInteractiveMode(): Promise<void> {
       { key: '5', label: 'Extract Chapters', description: 'Split by metadata chapters', action: handleChapterExtraction },
       { key: '6', label: 'Split by Silence', description: 'Auto-split at silent points', action: handleSilenceSplit },
       { key: '7', label: 'Transcode Video', description: 'Convert video to WebM/MP4/MKV', action: handleVideoTranscode },
-      { key: '8', label: 'Manage Presets', description: 'Save/load clip time presets', action: handlePresetManagement },
-      { key: '9', label: 'View History', description: 'See recent conversions', action: handleViewHistory },
-      { key: '10', label: 'Settings', description: 'Configure default options', action: handleSettings },
+      { key: '8', label: 'Convert to GIF/WebP', description: 'Create animated GIFs or WebP images', action: handleGifWebpConvert },
+      { key: '9', label: 'Manage Presets', description: 'Save/load clip time presets', action: handlePresetManagement },
+      { key: '10', label: 'View History', description: 'See recent conversions', action: handleViewHistory },
+      { key: '11', label: 'Settings', description: 'Configure default options', action: handleSettings },
       { key: '0', label: 'Exit', description: 'Quit the program', action: async () => { process.exit(0); } },
     ];
 
@@ -669,6 +671,99 @@ async function handleVideoTranscode(): Promise<void> {
   }
 }
 
+async function handleGifWebpConvert(): Promise<void> {
+  const inputPath = await cli.selectMediaFile(process.cwd());
+
+  if (!inputPath) {
+    return;
+  }
+
+  if (!existsSync(inputPath)) {
+    cli.error(`File not found: ${inputPath}`);
+    return;
+  }
+
+  // Get media info
+  const infoResult = await cli.withSpinner('Analyzing media file...', () => ffmpeg.getMediaInfo(inputPath));
+
+  if (infoResult.success && infoResult.data) {
+    cli.box('Media Information', [
+      `Duration: ${ffmpeg.formatTime(infoResult.data.duration || 0)}`,
+      `Format: ${infoResult.data.format}`,
+      `Bitrate: ${Math.round((infoResult.data.bitrate || 0) / 1000)} kbps`
+    ]);
+  }
+
+  // Select output format (GIF or WebP)
+  const format = await cli.selectImageFormat();
+
+  // Select preset or custom
+  const presetKey = await cli.selectGifWebpPreset(format);
+
+  let conversionOptions: Partial<GifWebpConversionOptions> = { format };
+
+  if (presetKey !== 'custom') {
+    // Use preset settings
+    const preset = GIF_WEBP_PRESETS[presetKey as Exclude<GifWebpPresetKey, 'custom'>];
+    conversionOptions = { ...conversionOptions, ...preset.settings };
+    cli.info(`Using preset: ${preset.label}`);
+  } else {
+    // Configure custom settings
+    const customOptions = await cli.configureGifWebpOptions(format);
+    conversionOptions = { ...conversionOptions, ...customOptions };
+  }
+
+  // Prompt for clipping
+  const clipOptions = await cli.promptGifWebpClip();
+  if (clipOptions.startTime) {
+    conversionOptions.startTime = clipOptions.startTime;
+  }
+  if (clipOptions.duration) {
+    conversionOptions.duration = clipOptions.duration;
+  }
+
+  // Generate output path
+  const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
+  const defaultOutput = organizer.getOutputPath(baseName, format);
+  const outputPath = await cli.prompt('Output path', defaultOutput);
+
+  // Confirm and execute
+  const dryRun = await cli.confirm('Dry run first?', false);
+
+  const jobId = randomUUID();
+  const result = await cli.withSpinner(`Converting to ${format.toUpperCase()}...`, () =>
+    ffmpeg.convertToAnimatedImage(inputPath, outputPath, { ...conversionOptions, dryRun })
+  );
+
+  if (result.success) {
+    cli.success(`Created: ${result.data!.outputPath}`);
+
+    if (dryRun) {
+      console.log(`\nCommand: ${result.data!.command}\n`);
+      if (await cli.confirm('Execute for real?')) {
+        const realResult = await ffmpeg.convertToAnimatedImage(inputPath, outputPath, { ...conversionOptions, dryRun: false });
+        if (realResult.success) {
+          cli.success(`Saved: ${realResult.data!.outputPath}`);
+          logGifWebpProcess(jobId, inputPath, realResult.data!.outputPath, format, presetKey, 'completed');
+        } else {
+          cli.error(realResult.error || 'Conversion failed');
+        }
+      }
+    } else {
+      logGifWebpProcess(jobId, inputPath, result.data!.outputPath, format, presetKey, 'completed');
+
+      // Offer to save custom settings as a preset
+      if (presetKey === 'custom') {
+        if (await cli.confirm('Save these settings as a custom preset?', false)) {
+          cli.info('Custom GIF/WebP presets can be saved in Settings.');
+        }
+      }
+    }
+  } else {
+    cli.error(result.error || 'Conversion failed');
+  }
+}
+
 async function handlePresetManagement(): Promise<void> {
   const options: MenuOption[] = [
     { key: '1', label: 'List Presets', action: async () => {
@@ -868,6 +963,36 @@ function logVideoProcess(
     videoPreset: presetKey,
     videoResolution: resolution,
     videoOutputFormat: format,
+    status,
+    createdAt: new Date().toISOString()
+  });
+}
+
+function logGifWebpProcess(
+  jobId: string,
+  inputPath: string,
+  outputPath: string,
+  format: ImageOutputFormat,
+  presetKey: GifWebpPresetKey | 'custom',
+  status: string
+): void {
+  db.createProcess({
+    jobId,
+    inputPath,
+    inputType: downloader.isUrl(inputPath) ? 'url' : 'file',
+    outputPath,
+    outputFormat: format,
+    qualityPreset: presetKey,
+    status,
+    createdAt: new Date().toISOString()
+  });
+
+  logger.logToFile({
+    jobId,
+    inputPath,
+    outputPath,
+    outputFormat: format,
+    qualityPreset: presetKey,
     status,
     createdAt: new Date().toISOString()
   });

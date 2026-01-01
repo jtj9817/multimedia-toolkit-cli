@@ -7,7 +7,7 @@ import { config } from '../config/config';
 import { db } from '../db/database';
 import { existsSync, mkdirSync, writeFileSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
-import type { ProcessRecord, OutputFormat, VideoOutputFormat } from '../types';
+import type { ProcessRecord, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
 
 // ANSI color codes for terminal output
 const colors = {
@@ -243,7 +243,7 @@ export class OutputOrganizer {
    */
   getOutputPath(
     baseName: string,
-    format: OutputFormat | VideoOutputFormat,
+    format: OutputFormat | VideoOutputFormat | ImageOutputFormat,
     options: {
       source?: string;
       tags?: string[];
@@ -296,7 +296,7 @@ export class OutputOrganizer {
   /**
    * Generate filename with optional tags
    */
-  private generateFileName(baseName: string, format: OutputFormat | VideoOutputFormat, tags?: string[]): string {
+  private generateFileName(baseName: string, format: OutputFormat | VideoOutputFormat | ImageOutputFormat, tags?: string[]): string {
     const sanitizedBase = this.sanitize(baseName);
     const timestamp = Date.now();
     const tagSuffix = tags && tags.length > 0 ? `_${tags.map(t => this.sanitize(t)).join('_')}` : '';

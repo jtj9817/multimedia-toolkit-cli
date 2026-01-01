@@ -7,11 +7,13 @@ export const SUPPORTED_VIDEO_FORMATS = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv
 export const SUPPORTED_AUDIO_FORMATS = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'opus'] as const;
 export const OUTPUT_FORMATS = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'opus', 'webm'] as const;
 export const VIDEO_OUTPUT_FORMATS = ['webm', 'mp4', 'mkv'] as const;
+export const IMAGE_OUTPUT_FORMATS = ['gif', 'webp'] as const;
 
 export type VideoFormat = typeof SUPPORTED_VIDEO_FORMATS[number];
 export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
 export type OutputFormat = typeof OUTPUT_FORMATS[number];
 export type VideoOutputFormat = typeof VIDEO_OUTPUT_FORMATS[number];
+export type ImageOutputFormat = typeof IMAGE_OUTPUT_FORMATS[number];
 
 export type VideoResolution = 'source' | '1080p' | '720p';
 export type VideoScalePolicy = 'fit' | 'stretch' | 'crop';
@@ -49,6 +51,61 @@ export interface VideoTranscodePreset {
 }
 
 export type VideoPresetKey = 'any-to-webm' | 'any-to-mp4' | 'any-to-mkv';
+
+// GIF/WebP Conversion Types
+export type GifWebpPresetKey =
+  // GIF presets
+  | 'gif-discord'
+  | 'gif-high-quality'
+  | 'gif-small-file'
+  | 'gif-smooth-loop'
+  // WebP presets
+  | 'webp-discord'
+  | 'webp-high-quality'
+  | 'webp-small-file'
+  | 'webp-lossless'
+  | 'custom';
+
+export interface GifWebpConversionOptions {
+  format: ImageOutputFormat;
+  fps: number;
+  width?: number;          // Output width (height auto-calculated to preserve aspect)
+  quality: number;         // 1-100 for WebP, ignored for GIF
+  loop: boolean;           // Loop animation
+  loopCount: number;       // 0 = infinite, otherwise specific count
+  startTime?: string;      // Clip start
+  duration?: number;       // Clip duration in seconds
+  dither?: 'none' | 'floyd_steinberg' | 'sierra2' | 'bayer';  // GIF dithering
+  paletteMode?: 'full' | 'diff';  // GIF palette generation mode
+  compression?: number;    // WebP compression method (0-6, higher = slower/smaller)
+  lossless?: boolean;      // WebP lossless mode
+}
+
+export interface GifWebpPreset {
+  key: GifWebpPresetKey;
+  label: string;
+  description: string;
+  format: ImageOutputFormat;
+  settings: Partial<GifWebpConversionOptions>;
+}
+
+// User-saved custom presets for GIF/WebP
+export interface CustomGifWebpPreset {
+  id?: number;
+  name: string;
+  format: ImageOutputFormat;
+  fps: number;
+  width?: number;
+  quality: number;
+  loop: boolean;
+  loopCount: number;
+  dither?: string;
+  paletteMode?: string;
+  compression?: number;
+  lossless?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface VideoTranscodeOptions {
   presetKey?: VideoPresetKey;
@@ -222,6 +279,10 @@ export interface AppConfig {
   defaultVideoFormat: VideoOutputFormat;
   defaultVideoPreset: VideoPresetKey;
   defaultVideoResolution: VideoResolution;
+  // GIF/WebP defaults
+  defaultGifWebpPreset: GifWebpPresetKey;
+  defaultGifFps: number;
+  defaultWebpQuality: number;
   autoOrganize: boolean;
   organizeBy: 'date' | 'source' | 'format' | 'custom';
   preserveMetadata: boolean;

@@ -16,7 +16,9 @@ import type {
   VideoPresetKey,
   VideoTranscodeOptions,
   VideoTranscodePreset,
-  VideoScaleSettings
+  VideoScaleSettings,
+  GifWebpConversionOptions,
+  ImageOutputFormat
 } from '../types';
 import { QUALITY_PRESETS } from '../types';
 import { VIDEO_TRANSCODE_PRESETS } from './video-presets';
@@ -876,6 +878,259 @@ export class FFmpegWrapper {
       data: { outputs: outputs as Record<OutputFormat, string> },
       warnings: errors.length > 0 ? errors : undefined
     };
+  }
+
+/**
+   * Convert video to animated GIF
+   * Uses two-pass palette generation for optimal quality
+   */
+  async convertToGif(
+    inputPath: string,
+    outputPath: string,
+    options: Partial<GifWebpConversionOptions> & { dryRun?: boolean } = {}
+  ): Promise<OperationResult<{ command: string; outputPath: string }>> {
+    const {
+      fps = 15,
+      width,
+      loop = true,
+      loopCount = 0,
+      startTime,
+      duration,
+      dither = 'floyd_steinberg',
+      paletteMode = 'diff',
+      dryRun = false
+    } = options;
+
+    const tempDir = config.get('tempDir');
+    const paletteFile = `${tempDir}/palette_${Date.now()}.png`;
+
+    try {
+      // Build filter chain
+      const filters: string[] = [];
+
+      // FPS filter (0 means keep original)
+      if (fps > 0) {
+        filters.push(`fps=${fps}`);
+      }
+
+      // Scale filter (0 or undefined means keep original)
+      if (width && width > 0) {
+        filters.push(`scale=${width}:-1:flags=lanczos`);
+      }
+
+      const filterBase = filters.length > 0 ? filters.join(',') : 'null';
+
+      // === Pass 1: Generate palette ===
+      const paletteArgs: string[] = ['-y'];
+
+      if (startTime) {
+        paletteArgs.push('-ss', startTime);
+      }
+
+      paletteArgs.push('-i', inputPath);
+
+      if (duration) {
+        paletteArgs.push('-t', String(duration));
+      }
+
+      // Palette generation filter
+      const paletteFilter = paletteMode === 'diff'
+        ? `${filterBase},palettegen=stats_mode=diff`
+        : `${filterBase},palettegen=stats_mode=full`;
+
+      paletteArgs.push('-vf', paletteFilter);
+      paletteArgs.push(paletteFile);
+
+      if (!dryRun) {
+        const paletteProc = Bun.spawn([this.ffmpegPath, ...paletteArgs], {
+          stdout: 'pipe',
+          stderr: 'pipe'
+        });
+
+        const paletteExit = await paletteProc.exited;
+        if (paletteExit !== 0) {
+          const error = await new Response(paletteProc.stderr).text();
+          return { success: false, error: `Palette generation failed: ${error}` };
+        }
+      }
+
+      // === Pass 2: Generate GIF using palette ===
+      const gifArgs: string[] = ['-y'];
+
+      if (startTime) {
+        gifArgs.push('-ss', startTime);
+      }
+
+      gifArgs.push('-i', inputPath);
+      gifArgs.push('-i', paletteFile);
+
+      if (duration) {
+        gifArgs.push('-t', String(duration));
+      }
+
+      // Dither settings
+      const ditherSetting = dither === 'none' ? 'none' : `${dither}`;
+      const gifFilter = `${filterBase}[x];[x][1:v]paletteuse=dither=${ditherSetting}`;
+
+      gifArgs.push('-lavfi', gifFilter);
+
+      // Loop setting (-1 = no loop, 0 = infinite, n = loop n times)
+      gifArgs.push('-loop', loop ? String(loopCount) : '-1');
+
+      gifArgs.push(outputPath);
+
+      const fullCommand = `${this.ffmpegPath} ${paletteArgs.join(' ')} && ${this.ffmpegPath} ${gifArgs.join(' ')}`;
+
+      if (dryRun) {
+        return {
+          success: true,
+          data: { command: fullCommand, outputPath },
+          warnings: ['Dry run - command not executed']
+        };
+      }
+
+      const gifProc = Bun.spawn([this.ffmpegPath, ...gifArgs], {
+        stdout: 'pipe',
+        stderr: 'pipe'
+      });
+
+      const gifExit = await gifProc.exited;
+
+      // Clean up palette file
+      await Bun.$`rm -f ${paletteFile}`.catch(() => {});
+
+      if (gifExit !== 0) {
+        const error = await new Response(gifProc.stderr).text();
+        return { success: false, error: `GIF conversion failed: ${error}` };
+      }
+
+      return { success: true, data: { command: fullCommand, outputPath } };
+    } catch (error) {
+      await Bun.$`rm -f ${paletteFile}`.catch(() => {});
+      return { success: false, error: `GIF conversion failed: ${error}` };
+    }
+  }
+
+  /**
+   * Convert video to animated WebP
+   */
+  async convertToWebp(
+    inputPath: string,
+    outputPath: string,
+    options: Partial<GifWebpConversionOptions> & { dryRun?: boolean } = {}
+  ): Promise<OperationResult<{ command: string; outputPath: string }>> {
+    const {
+      fps = 30,
+      width,
+      quality = 80,
+      loop = true,
+      loopCount = 0,
+      startTime,
+      duration,
+      compression = 4,
+      lossless = false,
+      dryRun = false
+    } = options;
+
+    const args: string[] = ['-y'];
+
+    // Input seeking
+    if (startTime) {
+      args.push('-ss', startTime);
+    }
+
+    args.push('-i', inputPath);
+
+    // Duration
+    if (duration) {
+      args.push('-t', String(duration));
+    }
+
+    // Build filter chain
+    const filters: string[] = [];
+
+    // FPS filter (0 means keep original)
+    if (fps > 0) {
+      filters.push(`fps=${fps}`);
+    }
+
+    // Scale filter (0 or undefined means keep original)
+    if (width && width > 0) {
+      filters.push(`scale=${width}:-1:flags=lanczos`);
+    }
+
+    if (filters.length > 0) {
+      args.push('-vf', filters.join(','));
+    }
+
+    // WebP codec
+    args.push('-c:v', 'libwebp');
+
+    // Quality/lossless settings
+    if (lossless) {
+      args.push('-lossless', '1');
+    } else {
+      args.push('-quality', String(quality));
+    }
+
+    // Compression method (0-6, higher = slower but better)
+    args.push('-compression_level', String(compression));
+
+    // Loop setting (0 = infinite, otherwise specific count)
+    args.push('-loop', loop ? String(loopCount) : '1');
+
+    // No audio
+    args.push('-an');
+
+    // Output format
+    args.push('-f', 'webp');
+
+    args.push(outputPath);
+
+    const fullCommand = `${this.ffmpegPath} ${args.join(' ')}`;
+
+    if (dryRun) {
+      return {
+        success: true,
+        data: { command: fullCommand, outputPath },
+        warnings: ['Dry run - command not executed']
+      };
+    }
+
+    try {
+      const proc = Bun.spawn([this.ffmpegPath, ...args], {
+        stdout: 'pipe',
+        stderr: 'pipe'
+      });
+
+      const exitCode = await proc.exited;
+
+      if (exitCode !== 0) {
+        const error = await new Response(proc.stderr).text();
+        return { success: false, error: `WebP conversion failed: ${error}` };
+      }
+
+      return { success: true, data: { command: fullCommand, outputPath } };
+    } catch (error) {
+      return { success: false, error: `WebP conversion failed: ${error}` };
+    }
+  }
+
+  /**
+   * Convert video to GIF or WebP based on options
+   */
+  async convertToAnimatedImage(
+    inputPath: string,
+    outputPath: string,
+    options: Partial<GifWebpConversionOptions> & { dryRun?: boolean }
+  ): Promise<OperationResult<{ command: string; outputPath: string }>> {
+    const format = options.format || 'gif';
+
+    if (format === 'gif') {
+      return this.convertToGif(inputPath, outputPath, options);
+    } else {
+      return this.convertToWebp(inputPath, outputPath, options);
+    }
   }
 
   private resolveVideoPreset(options: VideoTranscodeOptions): VideoTranscodePreset {
