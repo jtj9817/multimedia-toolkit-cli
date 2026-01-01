@@ -1,0 +1,27 @@
+{
+  "name": "media-audio-toolkit",
+  "version": "1.0.0",
+  "description": "Comprehensive audio extraction and conversion toolkit for media files",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts",
+    "build": "bun build src/index.ts --outdir ./dist --target bun",
+    "test": "bun test"
+  },
+  "keywords": [
+    "audio",
+    "extraction",
+    "ffmpeg",
+    "mp3",
+    "converter",
+    "clipper"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "bun-types": "^1.3.4"
+  }
+}
