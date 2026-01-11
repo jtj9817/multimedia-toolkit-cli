@@ -193,28 +193,95 @@ export class FzfSelector {
             echo "📹 Media File Information:";
             echo "─────────────────────────";
             if command -v ffprobe &>/dev/null; then
-              ffprobe -v quiet -print_format json -show_format -show_streams "$file" 2>/dev/null |
-                jq -r --arg file "$file" '
-                  def fmt(x): if x == null or x == "" then "N/A" else x end;
-                  def v: (.streams // [] | map(select(.codec_type == "video")) | .[0]);
-                  def a: (.streams // [] | map(select(.codec_type == "audio")) | .[0]);
-                  "File: " + ($file | split("/") | last) + "\n" +
-                  "Container: " + fmt(.format.format_name) + "\n" +
-                  "Container Name: " + fmt(.format.format_long_name) + "\n" +
-                  "Duration: " + fmt(.format.duration) + "s\n" +
-                  "Size: " + fmt(.format.size) + " bytes\n" +
-                  "Bitrate: " + fmt(.format.bit_rate) + "\n" +
-                  "Video: " + (v | if . == null then "N/A" else
-                    (fmt(.codec_name) + " " + fmt(.width) + "x" + fmt(.height) +
-                    (if .avg_frame_rate and .avg_frame_rate != "0/0" then " @ " + .avg_frame_rate + " fps" else "" end))
-                  end) + "\n" +
-                  "Audio: " + (a | if . == null then "N/A" else
-                    (fmt(.codec_name) +
-                    (if .channels then " " + (.channels | tostring) + "ch" else "" end) +
-                    (if .sample_rate then " @ " + .sample_rate + " Hz" else "" end))
-                  end)
-                ' 2>/dev/null ||
-                echo "Unable to read media info (ffprobe/jq error)";
+              if command -v bun &>/dev/null; then
+                bun -e '(async () => {
+                  const filePath = process.argv[1];
+                  if (!filePath) {
+                    console.error("No path provided");
+                    process.exit(1);
+                  }
+                  const ffprobe = Bun.which("ffprobe");
+                  if (!ffprobe) {
+                    console.log("ffprobe not found");
+                    process.exit(0);
+                  }
+                  const proc = Bun.spawn(
+                    [ffprobe, "-v", "error", "-of", "json", "-show_format", "-show_streams", filePath],
+                    { stdout: "pipe", stderr: "pipe" }
+                  );
+                  const [stdout, stderr, code] = await Promise.all([
+                    proc.stdout.text(),
+                    proc.stderr.text(),
+                    proc.exited
+                  ]);
+                  if (code !== 0) {
+                    console.log((stderr || ("ffprobe failed with exit code " + code)).trim());
+                    process.exit(0);
+                  }
+                  let media;
+                  try {
+                    media = JSON.parse(stdout);
+                  } catch (err) {
+                    console.log("Unable to parse ffprobe JSON");
+                    process.exit(0);
+                  }
+                  const fmt = (val) => (val === null || val === undefined || val === "" ? "N/A" : String(val));
+                  const format = media.format || {};
+                  const streams = Array.isArray(media.streams) ? media.streams : [];
+                  const video = streams.find((s) => s && s.codec_type === "video");
+                  const audio = streams.find((s) => s && s.codec_type === "audio");
+                  const fileName = filePath.split("/").pop() || filePath;
+                  const videoLabel = video
+                    ? (fmt(video.codec_name) + " " + fmt(video.width) + "x" + fmt(video.height) +
+                      (video.avg_frame_rate && video.avg_frame_rate !== "0/0" ? " @ " + video.avg_frame_rate + " fps" : ""))
+                    : "N/A";
+                  const audioLabel = audio
+                    ? (fmt(audio.codec_name) +
+                      (audio.channels ? " " + audio.channels + "ch" : "") +
+                      (audio.sample_rate ? " @ " + audio.sample_rate + " Hz" : ""))
+                    : "N/A";
+                  const lines = [
+                    "File: " + fileName,
+                    "Container: " + fmt(format.format_name),
+                    "Container Name: " + fmt(format.format_long_name),
+                    "Duration: " + fmt(format.duration) + "s",
+                    "Size: " + fmt(format.size) + " bytes",
+                    "Bitrate: " + fmt(format.bit_rate),
+                    "Video: " + videoLabel,
+                    "Audio: " + audioLabel
+                  ];
+                  for (const line of lines) console.log(line);
+                })().catch((err) => {
+                  console.log(err?.message || err);
+                  process.exit(0);
+                });' -- "$file";
+              elif command -v jq &>/dev/null; then
+                ffprobe -v error -of json -show_format -show_streams "$file" 2>/dev/null |
+                  jq -r --arg file "$file" '
+                    def fmt(x): if x == null or x == "" then "N/A" else x end;
+                    def v: (.streams // [] | map(select(.codec_type == "video")) | .[0]);
+                    def a: (.streams // [] | map(select(.codec_type == "audio")) | .[0]);
+                    "File: " + ($file | split("/") | last) + "\n" +
+                    "Container: " + fmt(.format.format_name) + "\n" +
+                    "Container Name: " + fmt(.format.format_long_name) + "\n" +
+                    "Duration: " + fmt(.format.duration) + "s\n" +
+                    "Size: " + fmt(.format.size) + " bytes\n" +
+                    "Bitrate: " + fmt(.format.bit_rate) + "\n" +
+                    "Video: " + (v | if . == null then "N/A" else
+                      (fmt(.codec_name) + " " + fmt(.width) + "x" + fmt(.height) +
+                      (if .avg_frame_rate and .avg_frame_rate != "0/0" then " @ " + .avg_frame_rate + " fps" else "" end))
+                    end) + "\n" +
+                    "Audio: " + (a | if . == null then "N/A" else
+                      (fmt(.codec_name) +
+                      (if .channels then " " + (.channels | tostring) + "ch" else "" end) +
+                      (if .sample_rate then " @ " + .sample_rate + " Hz" else "" end))
+                    end)
+                  ' 2>/dev/null ||
+                  echo "Unable to read media info (ffprobe/jq error)";
+              else
+                ffprobe -v error -show_entries format=duration,size,bit_rate,format_name,format_long_name:stream=codec_type,codec_name,width,height,avg_frame_rate,channels,sample_rate -of default=nw=1 "$file" 2>/dev/null ||
+                  echo "Unable to read media info (ffprobe error)";
+              fi;
             else
               echo "ffprobe not found";
               ls -lh -- "$file";
