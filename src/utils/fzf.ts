@@ -182,18 +182,22 @@ export class FzfSelector {
         const previewCmd = `
           file={};
           root="\${FZF_PREVIEW_ROOT:-}";
-          if [[ -n "$root" && "$file" != /* ]]; then
-            file="$root/$file";
+          if [ -n "$root" ]; then
+            case "$file" in
+              /*) ;;
+              *) file="$root/$file" ;;
+            esac;
           fi;
-          if [[ ! -e "$file" ]]; then
+          if [ ! -e "$file" ]; then
             echo "File not found: $file";
             exit 0;
           fi;
-          if [[ "$file" =~ \\.(mp4|mkv|avi|mov|webm|mp3|wav|flac|aac|ogg|opus|m4a)$ ]]; then
-            echo "📹 Media File Information:";
-            echo "─────────────────────────";
-            if command -v ffprobe &>/dev/null; then
-              if command -v bun &>/dev/null; then
+          case "$file" in
+            *.mp4|*.mkv|*.avi|*.mov|*.webm|*.mp3|*.wav|*.flac|*.aac|*.ogg|*.opus|*.m4a)
+              echo "📹 Media File Information:";
+              echo "─────────────────────────";
+              if command -v ffprobe >/dev/null 2>&1; then
+                if command -v bun >/dev/null 2>&1; then
                 bun -e '(async () => {
                   const filePath = process.argv[1];
                   if (!filePath) {
@@ -255,43 +259,84 @@ export class FzfSelector {
                   console.log(err?.message || err);
                   process.exit(0);
                 });' -- "$file";
-              elif command -v jq &>/dev/null; then
-                ffprobe -v error -of json -show_format -show_streams "$file" 2>/dev/null |
-                  jq -r --arg file "$file" '
-                    def fmt(x): if x == null or x == "" then "N/A" else x end;
-                    def v: (.streams // [] | map(select(.codec_type == "video")) | .[0]);
-                    def a: (.streams // [] | map(select(.codec_type == "audio")) | .[0]);
-                    "File: " + ($file | split("/") | last) + "\n" +
-                    "Container: " + fmt(.format.format_name) + "\n" +
-                    "Container Name: " + fmt(.format.format_long_name) + "\n" +
-                    "Duration: " + fmt(.format.duration) + "s\n" +
-                    "Size: " + fmt(.format.size) + " bytes\n" +
-                    "Bitrate: " + fmt(.format.bit_rate) + "\n" +
-                    "Video: " + (v | if . == null then "N/A" else
-                      (fmt(.codec_name) + " " + fmt(.width) + "x" + fmt(.height) +
-                      (if .avg_frame_rate and .avg_frame_rate != "0/0" then " @ " + .avg_frame_rate + " fps" else "" end))
-                    end) + "\n" +
-                    "Audio: " + (a | if . == null then "N/A" else
-                      (fmt(.codec_name) +
-                      (if .channels then " " + (.channels | tostring) + "ch" else "" end) +
-                      (if .sample_rate then " @ " + .sample_rate + " Hz" else "" end))
-                    end)
-                  ' 2>/dev/null ||
-                  echo "Unable to read media info (ffprobe/jq error)";
+                elif command -v jq >/dev/null 2>&1; then
+                  ffprobe -v error -of json -show_format -show_streams "$file" 2>/dev/null |
+                    jq -r --arg file "$file" '
+                      def fmt(x): if x == null or x == "" then "N/A" else x end;
+                      def v: (.streams // [] | map(select(.codec_type == "video")) | .[0]);
+                      def a: (.streams // [] | map(select(.codec_type == "audio")) | .[0]);
+                      "File: " + ($file | split("/") | last) + "\n" +
+                      "Container: " + fmt(.format.format_name) + "\n" +
+                      "Container Name: " + fmt(.format.format_long_name) + "\n" +
+                      "Duration: " + fmt(.format.duration) + "s\n" +
+                      "Size: " + fmt(.format.size) + " bytes\n" +
+                      "Bitrate: " + fmt(.format.bit_rate) + "\n" +
+                      "Video: " + (v | if . == null then "N/A" else
+                        (fmt(.codec_name) + " " + fmt(.width) + "x" + fmt(.height) +
+                        (if .avg_frame_rate and .avg_frame_rate != "0/0" then " @ " + .avg_frame_rate + " fps" else "" end))
+                      end) + "\n" +
+                      "Audio: " + (a | if . == null then "N/A" else
+                        (fmt(.codec_name) +
+                        (if .channels then " " + (.channels | tostring) + "ch" else "" end) +
+                        (if .sample_rate then " @ " + .sample_rate + " Hz" else "" end))
+                      end)
+                    ' 2>/dev/null ||
+                    echo "Unable to read media info (ffprobe/jq error)";
+                else
+                  ffprobe -v error -show_entries format=duration,size,bit_rate,format_name,format_long_name:stream=codec_type,codec_name,width,height,avg_frame_rate,channels,sample_rate -of default=nw=1 "$file" 2>/dev/null ||
+                    echo "Unable to read media info (ffprobe error)";
+                fi;
               else
-                ffprobe -v error -show_entries format=duration,size,bit_rate,format_name,format_long_name:stream=codec_type,codec_name,width,height,avg_frame_rate,channels,sample_rate -of default=nw=1 "$file" 2>/dev/null ||
-                  echo "Unable to read media info (ffprobe error)";
+                echo "ffprobe not found";
+                ls -lh -- "$file";
               fi;
-            else
-              echo "ffprobe not found";
-              ls -lh -- "$file";
-            fi;
-          elif command -v bat &>/dev/null && [[ "$file" =~ \\.(txt|md|json|yml|yaml|sh|ts|js|py)$ ]]; then
-            bat --color=always --style=numbers --line-range=:50 "$file";
-          else
-            echo "📄 File Information:";
-            echo "─────────────────────────";
-            if command -v bun &>/dev/null; then
+              ;;
+            *.txt|*.md|*.json|*.yml|*.yaml|*.sh|*.ts|*.js|*.py)
+              if command -v bat >/dev/null 2>&1; then
+                bat --color=always --style=numbers --line-range=:50 "$file";
+              else
+                echo "📄 File Information:";
+                echo "─────────────────────────";
+                if command -v bun >/dev/null 2>&1; then
+                  bun -e '(async () => {
+                    const path = process.argv[1];
+                    if (!path) {
+                      console.error("No path provided");
+                      process.exit(1);
+                    }
+                    const file = Bun.file(path);
+                    const stats = await file.stat();
+                    const formatMs = (ms) => (typeof ms === "number" ? new Date(ms).toISOString() : "N/A");
+                    const lines = [
+                      ["Path", path],
+                      ["Size", stats.size + " bytes"],
+                      ["Mode", stats.mode],
+                      ["UID", stats.uid],
+                      ["GID", stats.gid],
+                      ["Accessed", formatMs(stats.atimeMs)],
+                      ["Modified", formatMs(stats.mtimeMs)],
+                      ["Changed", formatMs(stats.ctimeMs)],
+                      ["Birth", formatMs(stats.birthtimeMs)],
+                      ["Last Modified", file.lastModified]
+                    ];
+                    for (const [label, value] of lines) {
+                      console.log(label + ": " + value);
+                    }
+                  })().catch((err) => {
+                    console.error(err?.message || err);
+                    process.exit(1);
+                  });' -- "$file";
+                else
+                  file -- "$file";
+                  echo "";
+                  ls -lh -- "$file";
+                fi;
+              fi;
+              ;;
+            *)
+              echo "📄 File Information:";
+              echo "─────────────────────────";
+              if command -v bun >/dev/null 2>&1; then
               bun -e '(async () => {
                 const path = process.argv[1];
                 if (!path) {
@@ -316,16 +361,17 @@ export class FzfSelector {
                 for (const [label, value] of lines) {
                   console.log(label + ": " + value);
                 }
-              })().catch((err) => {
-                console.error(err?.message || err);
-                process.exit(1);
-              });' -- "$file";
-            else
-              file -- "$file";
-              echo "";
-              ls -lh -- "$file";
-            fi;
-          fi
+                })().catch((err) => {
+                  console.error(err?.message || err);
+                  process.exit(1);
+                });' -- "$file";
+              else
+                file -- "$file";
+                echo "";
+                ls -lh -- "$file";
+              fi;
+              ;;
+          esac
         `.trim();
 
         fzfArgs.push(
