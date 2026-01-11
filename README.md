@@ -189,9 +189,11 @@ Main Menu
   [4] Batch Process - Process multiple files
   [5] Extract Chapters - Split by metadata chapters
   [6] Split by Silence - Auto-split at silent points
-  [7] Manage Presets - Save/load clip time presets
-  [8] View History - See recent conversions
-  [9] Settings - Configure default options
+  [7] Transcode Video - Convert video to WebM/MP4/MKV
+  [8] Convert to GIF/WebP - Create animated GIFs or WebP images
+  [9] Manage Presets - Save/load clip time presets
+  [10] View History - See recent conversions
+  [11] Settings - Configure default options
   [0] Exit - Quit the program
 ```
 
