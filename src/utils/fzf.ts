@@ -259,32 +259,24 @@ export class FzfSelector {
                   console.log(err?.message || err);
                   process.exit(0);
                 });' -- "$file";
-                elif command -v jq >/dev/null 2>&1; then
-                  ffprobe -v error -of json -show_format -show_streams "$file" 2>/dev/null |
-                    jq -r --arg file "$file" '
-                      def fmt(x): if x == null or x == "" then "N/A" else x end;
-                      def v: (.streams // [] | map(select(.codec_type == "video")) | .[0]);
-                      def a: (.streams // [] | map(select(.codec_type == "audio")) | .[0]);
-                      "File: " + ($file | split("/") | last) + "\n" +
-                      "Container: " + fmt(.format.format_name) + "\n" +
-                      "Container Name: " + fmt(.format.format_long_name) + "\n" +
-                      "Duration: " + fmt(.format.duration) + "s\n" +
-                      "Size: " + fmt(.format.size) + " bytes\n" +
-                      "Bitrate: " + fmt(.format.bit_rate) + "\n" +
-                      "Video: " + (v | if . == null then "N/A" else
-                        (fmt(.codec_name) + " " + fmt(.width) + "x" + fmt(.height) +
-                        (if .avg_frame_rate and .avg_frame_rate != "0/0" then " @ " + .avg_frame_rate + " fps" else "" end))
-                      end) + "\n" +
-                      "Audio: " + (a | if . == null then "N/A" else
-                        (fmt(.codec_name) +
-                        (if .channels then " " + (.channels | tostring) + "ch" else "" end) +
-                        (if .sample_rate then " @ " + .sample_rate + " Hz" else "" end))
-                      end)
-                    ' 2>/dev/null ||
-                    echo "Unable to read media info (ffprobe/jq error)";
                 else
-                  ffprobe -v error -show_entries format=duration,size,bit_rate,format_name,format_long_name:stream=codec_type,codec_name,width,height,avg_frame_rate,channels,sample_rate -of default=nw=1 "$file" 2>/dev/null ||
+                  info=$(ffprobe -v error -show_entries format=duration,size,bit_rate,format_name,format_long_name -of default=nw=1 "$file" 2>/dev/null) || {
                     echo "Unable to read media info (ffprobe error)";
+                    exit 0;
+                  }
+                  duration=$(printf "%s\n" "$info" | awk -F= '$1=="duration"{print $2}')
+                  size=$(printf "%s\n" "$info" | awk -F= '$1=="size"{print $2}')
+                  bitrate=$(printf "%s\n" "$info" | awk -F= '$1=="bit_rate"{print $2}')
+                  format_name=$(printf "%s\n" "$info" | awk -F= '$1=="format_name"{print $2}')
+                  format_long_name=$(printf "%s\n" "$info" | awk -F= '$1=="format_long_name"{print $2}')
+                  fmt() { if [ -n "$1" ]; then printf "%s" "$1"; else printf "N/A"; fi; }
+                  fileName=\${file##*/};
+                  echo "File: $fileName";
+                  echo "Container: $(fmt "$format_name")";
+                  echo "Container Name: $(fmt "$format_long_name")";
+                  echo "Duration: $(fmt "$duration")s";
+                  echo "Size: $(fmt "$size") bytes";
+                  echo "Bitrate: $(fmt "$bitrate")";
                 fi;
               else
                 echo "ffprobe not found";
