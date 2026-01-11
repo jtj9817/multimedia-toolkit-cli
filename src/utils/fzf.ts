@@ -197,86 +197,58 @@ export class FzfSelector {
               echo "📹 Media File Information:";
               echo "─────────────────────────";
               if command -v ffprobe >/dev/null 2>&1; then
-                if command -v bun >/dev/null 2>&1; then
-                bun -e '(async () => {
-                  const filePath = process.argv[1];
-                  if (!filePath) {
-                    console.error("No path provided");
-                    process.exit(1);
-                  }
-                  const ffprobe = Bun.which("ffprobe");
-                  if (!ffprobe) {
-                    console.log("ffprobe not found");
-                    process.exit(0);
-                  }
-                  const proc = Bun.spawn(
-                    [ffprobe, "-v", "error", "-of", "json", "-show_format", "-show_streams", filePath],
-                    { stdout: "pipe", stderr: "pipe" }
-                  );
-                  const [stdout, stderr, code] = await Promise.all([
-                    proc.stdout.text(),
-                    proc.stderr.text(),
-                    proc.exited
-                  ]);
-                  if (code !== 0) {
-                    console.log((stderr || ("ffprobe failed with exit code " + code)).trim());
-                    process.exit(0);
-                  }
-                  let media;
-                  try {
-                    media = JSON.parse(stdout);
-                  } catch (err) {
-                    console.log("Unable to parse ffprobe JSON");
-                    process.exit(0);
-                  }
-                  const fmt = (val) => (val === null || val === undefined || val === "" ? "N/A" : String(val));
-                  const format = media.format || {};
-                  const streams = Array.isArray(media.streams) ? media.streams : [];
-                  const video = streams.find((s) => s && s.codec_type === "video");
-                  const audio = streams.find((s) => s && s.codec_type === "audio");
-                  const fileName = filePath.split("/").pop() || filePath;
-                  const videoLabel = video
-                    ? (fmt(video.codec_name) + " " + fmt(video.width) + "x" + fmt(video.height) +
-                      (video.avg_frame_rate && video.avg_frame_rate !== "0/0" ? " @ " + video.avg_frame_rate + " fps" : ""))
-                    : "N/A";
-                  const audioLabel = audio
-                    ? (fmt(audio.codec_name) +
-                      (audio.channels ? " " + audio.channels + "ch" : "") +
-                      (audio.sample_rate ? " @ " + audio.sample_rate + " Hz" : ""))
-                    : "N/A";
-                  const lines = [
-                    "File: " + fileName,
-                    "Container: " + fmt(format.format_name),
-                    "Container Name: " + fmt(format.format_long_name),
-                    "Duration: " + fmt(format.duration) + "s",
-                    "Size: " + fmt(format.size) + " bytes",
-                    "Bitrate: " + fmt(format.bit_rate),
-                    "Video: " + videoLabel,
-                    "Audio: " + audioLabel
-                  ];
-                  for (const line of lines) console.log(line);
-                })().catch((err) => {
-                  console.log(err?.message || err);
-                  process.exit(0);
-                });' -- "$file";
-                else
-                  info=$(ffprobe -v error -show_entries format=duration,size,bit_rate,format_name,format_long_name -of default=nw=1 "$file" 2>/dev/null) || {
-                    echo "Unable to read media info (ffprobe error)";
-                    exit 0;
-                  }
-                  duration=$(printf "%s\n" "$info" | awk -F= '$1=="duration"{print $2}')
-                  size=$(printf "%s\n" "$info" | awk -F= '$1=="size"{print $2}')
-                  bitrate=$(printf "%s\n" "$info" | awk -F= '$1=="bit_rate"{print $2}')
-                  format_name=$(printf "%s\n" "$info" | awk -F= '$1=="format_name"{print $2}')
-                  format_long_name=$(printf "%s\n" "$info" | awk -F= '$1=="format_long_name"{print $2}')
-                  fmt() { if [ -n "$1" ]; then printf "%s" "$1"; else printf "N/A"; fi; }
+                json=$(ffprobe -v error -of json -show_format -show_streams "$file" 2>/dev/null);
+                if [ -z "$json" ]; then
+                  echo "Unable to read media info";
+                  exit 0;
+                fi;
+                if command -v jq >/dev/null 2>&1; then
                   fileName=\${file##*/};
                   echo "File: $fileName";
-                  echo "Container: $(fmt "$format_name")";
-                  echo "Container Name: $(fmt "$format_long_name")";
-                  echo "Duration: $(fmt "$duration")s";
-                  echo "Size: $(fmt "$size") bytes";
-                  echo "Bitrate: $(fmt "$bitrate")";
+                  echo "$json" | jq -r '"Container: " + (.format.format_name // "N/A")';
+                  echo "$json" | jq -r '"Container Name: " + (.format.format_long_name // "N/A")';
+                  echo "$json" | jq -r '"Duration: " + (.format.duration // "N/A") + "s"';
+                  echo "$json" | jq -r '"Size: " + (.format.size // "N/A") + " bytes"';
+                  echo "$json" | jq -r '"Bitrate: " + (.format.bit_rate // "N/A")';
+                  video=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "video")) | .[0] // empty');
+                  if [ -n "$video" ]; then
+                    v_codec=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "video")) | .[0].codec_name // "N/A"');
+                    v_width=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "video")) | .[0].width // "?"');
+                    v_height=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "video")) | .[0].height // "?"');
+                    v_fps=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "video")) | .[0].avg_frame_rate // ""');
+                    if [ -n "$v_fps" ] && [ "$v_fps" != "0/0" ] && [ "$v_fps" != "null" ]; then
+                      echo "Video: $v_codec \${v_width}x\${v_height} @ $v_fps fps";
+                    else
+                      echo "Video: $v_codec \${v_width}x\${v_height}";
+                    fi;
+                  else
+                    echo "Video: N/A";
+                  fi;
+                  audio=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "audio")) | .[0] // empty');
+                  if [ -n "$audio" ]; then
+                    a_codec=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "audio")) | .[0].codec_name // "N/A"');
+                    a_ch=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "audio")) | .[0].channels // ""');
+                    a_rate=$(echo "$json" | jq -r '(.streams // []) | map(select(.codec_type == "audio")) | .[0].sample_rate // ""');
+                    audio_line="Audio: $a_codec";
+                    [ -n "$a_ch" ] && [ "$a_ch" != "null" ] && audio_line="$audio_line \${a_ch}ch";
+                    [ -n "$a_rate" ] && [ "$a_rate" != "null" ] && audio_line="$audio_line @ \${a_rate} Hz";
+                    echo "$audio_line";
+                  else
+                    echo "Audio: N/A";
+                  fi;
+                else
+                  fileName=\${file##*/};
+                  echo "File: $fileName";
+                  format_name=$(echo "$json" | grep -o '"format_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"format_name"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/');
+                  format_long_name=$(echo "$json" | grep -o '"format_long_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"format_long_name"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/');
+                  duration=$(echo "$json" | grep -o '"duration"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"duration"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/');
+                  size=$(echo "$json" | grep -o '"size"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"size"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/');
+                  bit_rate=$(echo "$json" | grep -o '"bit_rate"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"bit_rate"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/');
+                  echo "Container: \${format_name:-N/A}";
+                  echo "Container Name: \${format_long_name:-N/A}";
+                  echo "Duration: \${duration:-N/A}s";
+                  echo "Size: \${size:-N/A} bytes";
+                  echo "Bitrate: \${bit_rate:-N/A}";
                 fi;
               else
                 echo "ffprobe not found";
@@ -289,79 +261,16 @@ export class FzfSelector {
               else
                 echo "📄 File Information:";
                 echo "─────────────────────────";
-                if command -v bun >/dev/null 2>&1; then
-                  bun -e '(async () => {
-                    const path = process.argv[1];
-                    if (!path) {
-                      console.error("No path provided");
-                      process.exit(1);
-                    }
-                    const file = Bun.file(path);
-                    const stats = await file.stat();
-                    const formatMs = (ms) => (typeof ms === "number" ? new Date(ms).toISOString() : "N/A");
-                    const lines = [
-                      ["Path", path],
-                      ["Size", stats.size + " bytes"],
-                      ["Mode", stats.mode],
-                      ["UID", stats.uid],
-                      ["GID", stats.gid],
-                      ["Accessed", formatMs(stats.atimeMs)],
-                      ["Modified", formatMs(stats.mtimeMs)],
-                      ["Changed", formatMs(stats.ctimeMs)],
-                      ["Birth", formatMs(stats.birthtimeMs)],
-                      ["Last Modified", file.lastModified]
-                    ];
-                    for (const [label, value] of lines) {
-                      console.log(label + ": " + value);
-                    }
-                  })().catch((err) => {
-                    console.error(err?.message || err);
-                    process.exit(1);
-                  });' -- "$file";
-                else
-                  file -- "$file";
-                  echo "";
-                  ls -lh -- "$file";
-                fi;
+                ls -lh -- "$file";
+                echo "";
+                head -50 "$file" 2>/dev/null || cat "$file";
               fi;
               ;;
             *)
               echo "📄 File Information:";
               echo "─────────────────────────";
-              if command -v bun >/dev/null 2>&1; then
-              bun -e '(async () => {
-                const path = process.argv[1];
-                if (!path) {
-                  console.error("No path provided");
-                  process.exit(1);
-                }
-                const file = Bun.file(path);
-                const stats = await file.stat();
-                const formatMs = (ms) => (typeof ms === "number" ? new Date(ms).toISOString() : "N/A");
-                const lines = [
-                  ["Path", path],
-                  ["Size", stats.size + " bytes"],
-                  ["Mode", stats.mode],
-                  ["UID", stats.uid],
-                  ["GID", stats.gid],
-                  ["Accessed", formatMs(stats.atimeMs)],
-                  ["Modified", formatMs(stats.mtimeMs)],
-                  ["Changed", formatMs(stats.ctimeMs)],
-                  ["Birth", formatMs(stats.birthtimeMs)],
-                  ["Last Modified", file.lastModified]
-                ];
-                for (const [label, value] of lines) {
-                  console.log(label + ": " + value);
-                }
-                })().catch((err) => {
-                  console.error(err?.message || err);
-                  process.exit(1);
-                });' -- "$file";
-              else
-                file -- "$file";
-                echo "";
-                ls -lh -- "$file";
-              fi;
+              file -- "$file" 2>/dev/null || echo "Unknown file type";
+              ls -lh -- "$file";
               ;;
           esac
         `.trim();
