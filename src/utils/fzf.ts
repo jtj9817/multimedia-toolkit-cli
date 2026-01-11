@@ -193,8 +193,27 @@ export class FzfSelector {
             echo "📹 Media File Information:";
             echo "─────────────────────────";
             if command -v ffprobe &>/dev/null; then
-              ffprobe -v quiet -print_format json -show_format "$file" 2>/dev/null |
-                jq -r '.format | "Duration: \\(.duration // "N/A")s\\nSize: \\(.size // "N/A") bytes\\nBitrate: \\(.bit_rate // "N/A")\\nFormat: \\(.format_name // "N/A")"' 2>/dev/null ||
+              ffprobe -v quiet -print_format json -show_format -show_streams "$file" 2>/dev/null |
+                jq -r --arg file "$file" '
+                  def fmt(x): if x == null or x == "" then "N/A" else x end;
+                  def v: (.streams // [] | map(select(.codec_type == "video")) | .[0]);
+                  def a: (.streams // [] | map(select(.codec_type == "audio")) | .[0]);
+                  "File: " + ($file | split("/") | last) + "\n" +
+                  "Container: " + fmt(.format.format_name) + "\n" +
+                  "Container Name: " + fmt(.format.format_long_name) + "\n" +
+                  "Duration: " + fmt(.format.duration) + "s\n" +
+                  "Size: " + fmt(.format.size) + " bytes\n" +
+                  "Bitrate: " + fmt(.format.bit_rate) + "\n" +
+                  "Video: " + (v | if . == null then "N/A" else
+                    (fmt(.codec_name) + " " + fmt(.width) + "x" + fmt(.height) +
+                    (if .avg_frame_rate and .avg_frame_rate != "0/0" then " @ " + .avg_frame_rate + " fps" else "" end))
+                  end) + "\n" +
+                  "Audio: " + (a | if . == null then "N/A" else
+                    (fmt(.codec_name) +
+                    (if .channels then " " + (.channels | tostring) + "ch" else "" end) +
+                    (if .sample_rate then " @ " + .sample_rate + " Hz" else "" end))
+                  end)
+                ' 2>/dev/null ||
                 echo "Unable to read media info (ffprobe/jq error)";
             else
               echo "ffprobe not found";
