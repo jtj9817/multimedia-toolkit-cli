@@ -1,6 +1,6 @@
 # Multimedia Toolkit
 
-A comprehensive Bun.js-based audio extraction and conversion tool that combines functionality from multiple shell scripts into a unified, feature-rich application.
+A comprehensive Bun.js-based multimedia processing tool for audio extraction, video transcoding, and animated image conversion. Combines functionality from multiple shell scripts into a unified, feature-rich application.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bun](https://img.shields.io/badge/Bun-v1.0+-black)](https://bun.sh)
@@ -9,13 +9,15 @@ A comprehensive Bun.js-based audio extraction and conversion tool that combines 
 
 ## 🎵 Overview
 
-Multimedia Toolkit is a powerful command-line tool for extracting and converting audio from video and audio files. It features both an interactive menu-driven interface and a scriptable CLI mode, making it perfect for both casual users and automation workflows.
+Multimedia Toolkit is a powerful command-line tool for extracting and converting audio from video files, transcoding videos between formats, and creating animated GIFs and WebP images. It features both an interactive menu-driven interface and a scriptable CLI mode, making it perfect for both casual users and automation workflows.
 
 **What makes it special:**
 - 🎯 **Interactive & CLI modes** - User-friendly menus or scriptable commands
 - 🔍 **FZF integration** - Fuzzy file search with live preview
+- 🎬 **Video transcoding** - Convert between WebM, MP4, and MKV formats
+- 🖼️ **GIF/WebP creation** - Generate animated images from videos
 - 📦 **Batch processing** - Handle multiple files efficiently
-- 🎬 **Chapter extraction** - Split by metadata chapters
+- 📖 **Chapter extraction** - Split by metadata chapters
 - 🔇 **Silence detection** - Auto-split at silent points
 - 💾 **Preset system** - Save and reuse clip configurations
 - 📊 **Process tracking** - SQLite database with history and statistics
@@ -27,6 +29,8 @@ Multimedia Toolkit is a powerful command-line tool for extracting and converting
 
 ### Input Sources
 - Extract audio from video files (MP4, MKV, AVI, MOV, WEBM, FLV, WMV)
+- Transcode video files between formats (WebM, MP4, MKV)
+- Convert videos to animated GIF or WebP images
 - Support URLs (YouTube, Vimeo, SoundCloud via yt-dlp - 1000+ sites)
 - Accept multiple input files for batch processing
 - Local audio file format conversion
@@ -39,11 +43,29 @@ Multimedia Toolkit is a powerful command-line tool for extracting and converting
 - Save time presets for frequently clipped segments
 
 ### Output Options
-- **Formats**: MP3, AAC, OGG, OPUS, WEBM, FLAC, WAV
+- **Audio Formats**: MP3, AAC, OGG, OPUS, WEBM, FLAC, WAV
+- **Video Formats**: WebM, MP4, MKV
+- **Image Formats**: GIF, WebP (animated)
 - **Quality presets**: Speech, Music (low/medium/high), Optimized WEBM, Lossless
 - Configurable bitrate/quality per format
 - Merge multiple clips into single output file
 - Preserve or strip metadata (artist, album, cover art)
+
+### Video Transcoding
+- **Any-to-WebM**: Discord-optimized with VP9 video and Opus audio (default 1080p)
+- **Any-to-MP4**: Universal compatibility with H.264 video and AAC audio
+- **Any-to-MKV**: Flexible container with H.264/H.265 support
+- Resolution scaling with aspect ratio preservation (source, 1080p, 720p)
+- Quality control via CRF (Constant Rate Factor) or bitrate modes
+- Custom video and audio codec selection
+
+### GIF/WebP Conversion
+- **GIF Presets**: Discord-optimized, high quality, small file, smooth loop
+- **WebP Presets**: Discord-optimized, high quality, small file, lossless
+- Configurable frame rate, dimensions, and loop settings
+- Advanced dithering options for GIFs (Floyd-Steinberg, Sierra, Bayer)
+- WebP compression and lossless modes
+- Custom palette generation for GIFs (full or diff mode)
 
 ### Workflow Improvements
 - **Interactive mode** with guided menu system
@@ -223,8 +245,13 @@ bun run src/index.ts -i video.mp4 -p "my-preset"
 ### Output Options
 ```
 -o, --output <path>     Output file or directory
--f, --format <fmt>      Output format: mp3, wav, flac, aac, ogg, opus, webm
--q, --quality <preset>  Quality preset: speech, music_low, music_medium, music_high, optimized_webm, lossless
+-f, --format <fmt>      Audio format: mp3, wav, flac, aac, ogg, opus, webm
+-q, --quality <preset>  Audio quality: speech, music_low, music_medium, music_high, optimized_webm, lossless
+--video-format <fmt>    Video format: webm, mp4, mkv
+--video-preset <name>   Video preset: any-to-webm, any-to-mp4, any-to-mkv
+--video-quality <mode>  Video quality mode: crf, bitrate
+--resolution <res>      Video resolution: source, 1080p, 720p
+--gif-webp-preset <key> GIF/WebP preset (see presets list)
 ```
 
 ### Clipping Options
@@ -409,6 +436,21 @@ bun run src/index.ts -i podcast.mp4 --chapters -f mp3 -q speech -o ./episodes/
 ### Auto-Split Recording at Pauses
 ```bash
 bun run src/index.ts -i long_recording.wav --silence -o ./segments/
+```
+
+### Convert Video to Discord-Optimized WebM
+```bash
+bun run src/index.ts -i video.mp4 --video-format webm --video-preset any-to-webm
+```
+
+### Create Animated GIF from Video
+```bash
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -o output.gif
+```
+
+### Create High-Quality WebP Animation
+```bash
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-high-quality -o output.webp
 ```
 
 ---

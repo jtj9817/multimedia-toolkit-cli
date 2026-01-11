@@ -56,6 +56,42 @@ bun run src/index.ts -u "URL" -f mp3 -q music_high
 bun run src/index.ts -u "URL" -s 30 -d 120
 ```
 
+### Video Transcoding
+```bash
+# Discord-optimized WebM (VP9/Opus, 1080p)
+bun run src/index.ts -i video.mov --video-preset any-to-webm
+
+# Universal MP4 (H.264/AAC)
+bun run src/index.ts -i video.mov --video-preset any-to-mp4
+
+# Flexible MKV
+bun run src/index.ts -i video.mov --video-preset any-to-mkv
+
+# Custom resolution
+bun run src/index.ts -i video.mov --video-preset any-to-webm --resolution 720p
+
+# Custom quality (lower CRF = better quality)
+bun run src/index.ts -i video.mov --video-preset any-to-webm --video-quality 25
+```
+
+### GIF/WebP Conversion
+```bash
+# Discord-optimized GIF (480px, 30fps, < 8MB)
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -o output.gif
+
+# High-quality WebP (much smaller than GIF)
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-high-quality -o output.webp
+
+# Small file size GIF
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-small-file -o output.gif
+
+# Lossless WebP
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-lossless -o output.webp
+
+# Clip + GIF (5 seconds starting at 1 minute)
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -s 00:01:00 -d 5 -o output.gif
+```
+
 ## 📦 Batch Operations
 
 ```bash
@@ -174,6 +210,8 @@ bun run src/index.ts -i video.mp4 -o /mnt/storage/audio.mp3
 
 ## 🎵 Format Reference
 
+### Audio Formats
+
 | Format | Use Case | Size | Quality |
 |--------|----------|------|---------|
 | `mp3` | Universal compatibility | Medium | Good |
@@ -183,6 +221,25 @@ bun run src/index.ts -i video.mp4 -o /mnt/storage/audio.mp3
 | `flac` | Archival/lossless | Large | Perfect |
 | `wav` | Uncompressed | Largest | Perfect |
 | `ogg` | Open source | Medium | Good |
+
+### Video Formats
+
+| Format | Codec | Use Case | Compatibility |
+|--------|-------|----------|---------------|
+| `webm` | VP9/Opus | Discord, modern web, best compression | Modern browsers, Discord |
+| `mp4` | H.264/AAC | Universal compatibility | All devices, platforms |
+| `mkv` | H.264/AAC | Flexible container, chapters support | Desktop players |
+
+### GIF/WebP Presets
+
+| Preset | Format | FPS | Width | Best For |
+|--------|--------|-----|-------|----------|
+| `gif-discord` | GIF | 30 | 480px | Discord uploads (< 8MB) |
+| `gif-high-quality` | GIF | 60 | 720px | Maximum quality |
+| `gif-small-file` | GIF | 10 | 320px | Smallest files |
+| `webp-discord` | WebP | 30 | 480px | Discord (smaller than GIF) |
+| `webp-high-quality` | WebP | 60 | 720px | Best quality/size ratio |
+| `webp-lossless` | WebP | 30 | 720px | Perfect quality |
 
 ## 🎚️ Quality Presets
 
@@ -207,26 +264,48 @@ bun run src/index.ts -i video.mp4 -o /mnt/storage/audio.mp3
 ## 🔑 Common Flags
 
 ```bash
--i, --input <file>         Input file
--o, --output <path>        Output file/directory
--f, --format <fmt>         Output format (mp3, flac, etc.)
--q, --quality <preset>     Quality preset
--s, --start <time>         Start time for clip
--d, --duration <sec>       Duration in seconds
--e, --end <time>           End time for clip
--p, --preset <name>        Use saved preset
--u, --url <url>            Download from URL
--m, --merge                Merge multiple clips
--w, --waveform             Show waveform
--b, --batch                Batch process directory
--t, --tags <tags>          Add tags
---chapters                 Extract chapters
---silence                  Split by silence
---strip-metadata           Remove metadata
---dry-run                  Test without executing
---interactive              Interactive mode
---help                     Show help
---version                  Show version
+# Input/Output
+-i, --input <file>           Input file
+-o, --output <path>          Output file/directory
+-u, --url <url>              Download from URL
+
+# Audio Options
+-f, --format <fmt>           Audio format (mp3, flac, etc.)
+-q, --quality <preset>       Audio quality preset
+
+# Video Options
+--video-format <fmt>         Video format (webm, mp4, mkv)
+--video-preset <preset>      Video transcode preset
+--video-quality <value>      Video quality (CRF or bitrate)
+--resolution <res>           Video resolution (source, 1080p, 720p)
+
+# GIF/WebP Options
+--gif-webp-preset <preset>   GIF/WebP conversion preset
+
+# Clipping Options
+-s, --start <time>           Start time for clip
+-d, --duration <sec>         Duration in seconds
+-e, --end <time>             End time for clip
+-p, --preset <name>          Use saved clip preset
+
+# Features
+-m, --merge                  Merge multiple clips
+-w, --waveform               Show waveform
+-b, --batch                  Batch process directory
+-t, --tags <tags>            Add tags
+--chapters                   Extract chapters
+--silence                    Split by silence
+--preview                    Preview clip before saving
+
+# Metadata
+--strip-metadata             Remove metadata
+--preserve-metadata          Keep metadata (default)
+
+# Workflow
+--dry-run                    Test without executing
+--interactive                Interactive mode
+--help                       Show help
+--version                    Show version
 ```
 
 ## 🐛 Quick Troubleshooting
@@ -313,6 +392,32 @@ bun run src/index.ts -i video.mp4 -p "intro-outro"
 ### Split podcast by chapters
 ```bash
 bun run src/index.ts -i podcast.mp4 --chapters -f mp3 -q speech -o ./episodes/
+```
+
+### Convert video for Discord
+```bash
+# WebM (best compression)
+bun run src/index.ts -i gameplay.mp4 --video-preset any-to-webm -o discord-ready.webm
+
+# Or as GIF (< 8MB)
+bun run src/index.ts -i clip.mp4 --gif-webp-preset gif-discord -s 10 -d 8 -o reaction.gif
+```
+
+### Create reaction GIF from moment
+```bash
+# Find the perfect moment, extract 3 seconds
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -s 00:12:34 -d 3 -o reaction.gif
+```
+
+### Convert MOV to universal MP4
+```bash
+bun run src/index.ts -i recording.mov --video-preset any-to-mp4 -o final.mp4
+```
+
+### Create high-quality WebP from video
+```bash
+# WebP is 50-90% smaller than GIF with better quality
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-high-quality -s 5 -d 10 -o demo.webp
 ```
 
 ---

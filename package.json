@@ -1,7 +1,7 @@
 {
   "name": "multimedia-toolkit",
   "version": "1.0.0",
-  "description": "Comprehensive audio extraction and conversion toolkit for media files",
+  "description": "Comprehensive multimedia toolkit for audio extraction, video transcoding, and animated image conversion",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -17,7 +17,13 @@
     "ffmpeg",
     "mp3",
     "converter",
-    "clipper"
+    "clipper",
+    "video",
+    "transcoding",
+    "gif",
+    "webp",
+    "animated",
+    "multimedia"
   ],
   "author": "",
   "license": "MIT",

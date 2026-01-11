@@ -31,6 +31,9 @@ Complete guide to configuring Multimedia Toolkit's behavior and default settings
   "defaultVideoFormat": "webm",
   "defaultVideoPreset": "any-to-webm",
   "defaultVideoResolution": "1080p",
+  "defaultGifWebpPreset": "gif-discord",
+  "defaultGifFps": 30,
+  "defaultWebpQuality": 80,
   "autoOrganize": true,
   "organizeBy": "date",
   "preserveMetadata": true,
@@ -171,6 +174,74 @@ Currently not supported, but planned for future releases.
 ```json
 "defaultVideoResolution": "720p"
 ```
+
+---
+
+### `defaultGifWebpPreset`
+
+**Type**: String (preset)
+
+**Default**: `gif-discord`
+
+**GIF Options**: `gif-discord`, `gif-high-quality`, `gif-small-file`, `gif-smooth-loop`
+
+**WebP Options**: `webp-discord`, `webp-high-quality`, `webp-small-file`, `webp-lossless`
+
+**Description**: Default preset for GIF/WebP conversions
+
+**Example**:
+```json
+"defaultGifWebpPreset": "webp-high-quality"
+```
+
+**Recommendation**:
+- Use `gif-discord` or `webp-discord` for social media uploads
+- Use `webp-high-quality` for best quality with good compression
+- Use `gif-small-file` or `webp-small-file` for minimal file size
+
+---
+
+### `defaultGifFps`
+
+**Type**: Number (frames per second)
+
+**Default**: `30`
+
+**Range**: `1-60`
+
+**Description**: Default frame rate for GIF/WebP conversions
+
+**Example**:
+```json
+"defaultGifFps": 60
+```
+
+**Guidelines**:
+- `10-15 fps`: Minimal motion, smallest files
+- `24-30 fps`: Standard smooth motion
+- `60 fps`: Very smooth motion, larger files
+
+---
+
+### `defaultWebpQuality`
+
+**Type**: Number (quality)
+
+**Default**: `80`
+
+**Range**: `1-100`
+
+**Description**: Default quality setting for WebP conversions
+
+**Example**:
+```json
+"defaultWebpQuality": 90
+```
+
+**Guidelines**:
+- `70-80`: Good quality, smaller files
+- `80-90`: High quality, balanced
+- `90-100`: Very high quality, larger files
 
 ---
 

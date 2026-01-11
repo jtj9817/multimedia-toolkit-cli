@@ -1,11 +1,12 @@
 # User Guide
 
-Complete guide to using Multimedia Toolkit for audio extraction and conversion.
+Complete guide to using Multimedia Toolkit for audio extraction, video transcoding, and GIF/WebP conversion.
 
 ## Table of Contents
 
 - [Basic Extraction](#basic-extraction)
 - [Video Transcoding](#video-transcoding)
+- [GIF/WebP Conversion](#gifwebp-conversion)
 - [Clipping Audio](#clipping-audio)
 - [Batch Processing](#batch-processing)
 - [URL Downloads](#url-downloads)
@@ -62,18 +63,206 @@ bun run src/index.ts -i video.mp4 --preserve-metadata
 
 ## Video Transcoding
 
-Convert video files to WebM, MP4, or MKV with optimized presets.
+Convert video files between formats (WebM, MP4, MKV) with optimized presets for different use cases.
+
+### Quick Start
 
 ```bash
-# Discord-optimized WebM (1080p default)
-bun run src/index.ts -i clip.mov --video-preset any-to-webm
+# Discord-optimized WebM (VP9/Opus, 1080p default)
+bun run src/index.ts -i input.mov --video-preset any-to-webm
 
-# MP4 output
-bun run src/index.ts -i clip.mov --video-format mp4
+# Universal MP4 (H.264/AAC)
+bun run src/index.ts -i input.mov --video-preset any-to-mp4
 
-# Override resolution and quality
-bun run src/index.ts -i clip.mov --video-format webm --resolution 720p --video-quality 31
+# Flexible MKV (H.264/AAC)
+bun run src/index.ts -i input.mov --video-preset any-to-mkv
 ```
+
+### Video Presets Explained
+
+| Preset | Container | Video Codec | Audio Codec | Default Resolution | Use Case |
+|--------|-----------|-------------|-------------|-------------------|----------|
+| **any-to-webm** | WebM | VP9 | Opus | 1080p | Discord uploads, modern web |
+| **any-to-mp4** | MP4 | H.264 | AAC | Source | Universal compatibility |
+| **any-to-mkv** | MKV | H.264 | AAC | Source | Flexible container, supports chapters |
+
+### Resolution Control
+
+```bash
+# Keep source resolution
+bun run src/index.ts -i input.mov --video-preset any-to-webm --resolution source
+
+# Force 1080p output (with aspect ratio preserved)
+bun run src/index.ts -i input.mov --video-preset any-to-webm --resolution 1080p
+
+# Force 720p output
+bun run src/index.ts -i input.mov --video-preset any-to-webm --resolution 720p
+```
+
+**Resolution Behavior**:
+- `source`: Maintains original resolution
+- `1080p`: Scales to fit 1920x1080 (preserves aspect ratio with padding)
+- `720p`: Scales to fit 1280x720 (preserves aspect ratio with padding)
+
+### Quality Control
+
+```bash
+# CRF mode (default) - lower = better quality
+bun run src/index.ts -i input.mov --video-preset any-to-webm --video-quality 25
+
+# Higher CRF = smaller file, lower quality
+bun run src/index.ts -i input.mov --video-preset any-to-webm --video-quality 35
+
+# Bitrate mode
+bun run src/index.ts -i input.mov --video-format mp4 --video-quality 2500k
+```
+
+**Quality Guidelines**:
+- **CRF 18-23**: Very high quality (larger files)
+- **CRF 23-28**: Good quality (balanced)
+- **CRF 28-35**: Lower quality (smaller files)
+- **Bitrate**: Specify exact bitrate (e.g., `2500k`, `5M`)
+
+### Discord Optimization
+
+The `any-to-webm` preset is specifically optimized for Discord:
+
+```bash
+# Uses VP9 video, Opus audio, 1080p, optimized compression
+bun run src/index.ts -i gameplay.mp4 --video-preset any-to-webm -o discord-ready.webm
+```
+
+**Features**:
+- VP9 codec for better compression than H.264
+- Opus audio (VBR mode, optimized for voice/music)
+- Default 1080p resolution
+- Typically 40-60% smaller than equivalent MP4
+
+### Advanced Examples
+
+```bash
+# Convert multiple videos to WebM
+bun run src/index.ts -i video1.mov -i video2.avi --video-preset any-to-webm
+
+# 720p WebM with custom CRF
+bun run src/index.ts -i input.mov --video-preset any-to-webm --resolution 720p --video-quality 28
+
+# High-quality MP4 for archival
+bun run src/index.ts -i source.mov --video-preset any-to-mp4 --video-quality 18
+
+# Preview command without executing
+bun run src/index.ts -i input.mov --video-preset any-to-webm --dry-run
+```
+
+---
+
+## GIF/WebP Conversion
+
+Create animated GIF or WebP images from video files with optimized presets.
+
+### Quick Start
+
+```bash
+# Discord-optimized GIF (480px, 30fps)
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -o output.gif
+
+# High-quality WebP (better compression than GIF)
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-high-quality -o output.webp
+
+# Small file size (perfect for thumbnails)
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-small-file -o output.gif
+```
+
+### GIF Presets
+
+| Preset | FPS | Width | Dithering | Loop | Use Case |
+|--------|-----|-------|-----------|------|----------|
+| **gif-discord** | 30 | 480px | Floyd-Steinberg | Infinite | Discord uploads (targets < 8MB) |
+| **gif-high-quality** | 60 | 720px | Floyd-Steinberg | Infinite | Maximum visual quality |
+| **gif-small-file** | 10 | 320px | Floyd-Steinberg | Infinite | Smallest possible file |
+| **gif-smooth-loop** | 60 | 480px | Sierra | Infinite | Smooth looping animations |
+
+### WebP Presets
+
+| Preset | FPS | Width | Quality | Lossless | Use Case |
+|--------|-----|-------|---------|----------|----------|
+| **webp-discord** | 30 | 480px | 80 | No | Discord uploads (much smaller than GIF) |
+| **webp-high-quality** | 60 | 720px | 90 | No | Best quality with good compression |
+| **webp-small-file** | 15 | 320px | 70 | No | Minimal file size |
+| **webp-lossless** | 30 | 720px | 100 | Yes | Perfect quality preservation |
+
+### GIF vs WebP Comparison
+
+**GIF**:
+- ✅ Universal browser support
+- ✅ Works everywhere (social media, forums)
+- ❌ Large file sizes
+- ❌ Limited to 256 colors
+- ❌ Simple dithering
+
+**WebP**:
+- ✅ Much smaller file sizes (50-90% smaller than GIF)
+- ✅ Better quality (millions of colors)
+- ✅ Lossless mode available
+- ❌ Limited browser support (no Safari < 14)
+- ❌ Not supported on some platforms
+
+**Recommendation**: Use WebP for Discord, modern websites, and personal use. Use GIF for maximum compatibility.
+
+### Clipping GIFs/WebPs
+
+Combine with clipping options to extract specific segments:
+
+```bash
+# Create 5-second GIF starting at 1 minute
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -s 00:01:00 -d 5 -o output.gif
+
+# Create WebP from 10-second segment
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-high-quality -s 30 -d 10 -o output.webp
+
+# Full video to GIF (may be large)
+bun run src/index.ts -i short-clip.mp4 --gif-webp-preset gif-smooth-loop -o output.gif
+```
+
+### Custom Settings (Advanced)
+
+While presets cover most use cases, you can create custom presets via the interactive mode:
+
+```bash
+# Launch interactive mode
+bun run src/index.ts --interactive
+
+# Select: [Create GIF/WebP] → [Custom Preset]
+# Configure: FPS, width, quality, dithering, compression
+# Save preset for reuse
+```
+
+### File Size Guidelines
+
+**GIF** (approximate sizes for 10-second clips):
+- `gif-small-file` (320px, 10fps): ~500KB - 2MB
+- `gif-discord` (480px, 30fps): ~2MB - 8MB
+- `gif-high-quality` (720px, 60fps): ~10MB - 30MB
+
+**WebP** (approximate sizes for 10-second clips):
+- `webp-small-file` (320px, 15fps): ~200KB - 800KB
+- `webp-discord` (480px, 30fps): ~500KB - 2MB
+- `webp-high-quality` (720px, 60fps): ~2MB - 8MB
+- `webp-lossless` (720px, 30fps): ~5MB - 15MB
+
+### Tips for Best Results
+
+1. **Keep it short**: GIFs/WebPs work best for 3-15 second clips
+2. **Choose the right preset**:
+   - Discord uploads → `gif-discord` or `webp-discord`
+   - Profile pictures → `gif-small-file` or `webp-small-file`
+   - Showcasing work → `webp-high-quality`
+   - Archive original → `webp-lossless`
+3. **Clip precisely**: Use `-s` and `-d` to extract exact moments
+4. **Preview first**: Use `--dry-run` to see command without executing
+5. **WebP over GIF**: When possible, prefer WebP for smaller files
+
+---
 
 ## Clipping Audio
 

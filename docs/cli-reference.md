@@ -7,6 +7,9 @@ Complete command-line interface reference for Multimedia Toolkit.
 - [Basic Usage](#basic-usage)
 - [Input Options](#input-options)
 - [Output Options](#output-options)
+  - [Audio Output Options](#audio-output-options)
+  - [Video Output Options](#video-output-options)
+  - [GIF/WebP Output Options](#gifwebp-output-options)
 - [Clipping Options](#clipping-options)
 - [Feature Flags](#feature-flags)
 - [Metadata Options](#metadata-options)
@@ -243,6 +246,48 @@ bun run src/index.ts -i input.mov --video-format webm --video-quality 31
 # Bitrate-based quality
 bun run src/index.ts -i input.mov --video-format mp4 --video-quality 2500k
 ```
+
+---
+
+### `--gif-webp-preset <preset>`
+
+GIF or WebP conversion preset.
+
+**Type**: String
+
+**GIF Options**: `gif-discord`, `gif-high-quality`, `gif-small-file`, `gif-smooth-loop`
+
+**WebP Options**: `webp-discord`, `webp-high-quality`, `webp-small-file`, `webp-lossless`
+
+**Default**: From configuration (default: `gif-discord`)
+
+**Examples**:
+```bash
+# Create Discord-optimized GIF (max 8MB, 480px, 30fps)
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -o output.gif
+
+# Create high-quality WebP animation
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-high-quality -o output.webp
+
+# Create small file size GIF
+bun run src/index.ts -i video.mp4 --gif-webp-preset gif-small-file -o output.gif
+
+# Create lossless WebP animation
+bun run src/index.ts -i video.mp4 --gif-webp-preset webp-lossless -o output.webp
+```
+
+**Preset Details**:
+
+| Preset | Format | FPS | Width | Quality | Loop | Use Case |
+|--------|--------|-----|-------|---------|------|----------|
+| gif-discord | GIF | 30 | 480px | Floyd-Steinberg dither | Infinite | Discord uploads (8MB limit) |
+| gif-high-quality | GIF | 60 | 720px | Floyd-Steinberg dither | Infinite | Best visual quality |
+| gif-small-file | GIF | 10 | 320px | Floyd-Steinberg dither | Infinite | Minimal file size |
+| gif-smooth-loop | GIF | 60 | 480px | Sierra dither | Infinite | Smooth animations |
+| webp-discord | WebP | 30 | 480px | 80 | Infinite | Discord uploads (smaller than GIF) |
+| webp-high-quality | WebP | 60 | 720px | 90 | Infinite | Best quality, smaller than GIF |
+| webp-small-file | WebP | 15 | 320px | 70 | Infinite | Minimal file size |
+| webp-lossless | WebP | 30 | 720px | 100 | Infinite | Perfect quality preservation |
 
 ---
 
