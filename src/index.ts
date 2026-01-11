@@ -345,8 +345,7 @@ async function handleClipAudio(): Promise<void> {
   const quality = await cli.selectQuality();
 
   // Output directory
-  const defaultDir = config.getOutputDir();
-  const outputDir = await cli.prompt('Output directory', defaultDir);
+  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
 
   // Execute
   const jobId = randomUUID();
@@ -412,7 +411,7 @@ async function handleUrlDownload(): Promise<void> {
   // Ask about clipping
   if (await cli.confirm('Clip the downloaded audio?', false)) {
     const clips = await cli.promptMultipleClips();
-    const outputDir = config.getOutputDir();
+    const outputDir = getDefaultOutputDir();
 
     const clipResult = await ffmpeg.extractMultipleClips(
       downloadResult.data!.path,
@@ -486,7 +485,7 @@ async function handleBatchProcess(): Promise<void> {
 
   const format = await cli.selectFormat();
   const quality = await cli.selectQuality();
-  const outputDir = await cli.prompt('Output directory', config.getOutputDir());
+  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
 
   // Process files
   let completed = 0;
@@ -556,7 +555,7 @@ async function handleChapterExtraction(): Promise<void> {
 
   const format = await cli.selectFormat();
   const quality = await cli.selectQuality();
-  const outputDir = await cli.prompt('Output directory', config.getOutputDir());
+  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
 
   const result = await cli.withSpinner('Extracting chapters...', () =>
     ffmpeg.extractChapters(inputPath, outputDir, { format, quality, chapterIndices })
@@ -590,7 +589,7 @@ async function handleSilenceSplit(): Promise<void> {
 
   const format = await cli.selectFormat();
   const quality = await cli.selectQuality();
-  const outputDir = await cli.prompt('Output directory', config.getOutputDir());
+  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
 
   // Detect silence first
   cli.info('Analyzing audio for silence...');
@@ -998,6 +997,10 @@ function logGifWebpProcess(
   });
 }
 
+function getDefaultOutputDir(): string {
+  return process.cwd();
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -1166,7 +1169,7 @@ async function runCliMode(values: Record<string, unknown>, positionals: string[]
     const presetResult = presets.get(values.preset as string);
     if (presetResult.success && presetResult.data) {
       for (const input of inputs) {
-        const outputDir = values.output as string || config.getOutputDir();
+        const outputDir = values.output as string || getDefaultOutputDir();
         const result = await ffmpeg.extractMultipleClips(input, presetResult.data.clips, outputDir, {
           format,
           quality,
@@ -1192,7 +1195,7 @@ async function runCliMode(values: Record<string, unknown>, positionals: string[]
   // Handle chapters extraction
   if (values.chapters) {
     for (const input of inputs) {
-      const outputDir = values.output as string || config.getOutputDir();
+      const outputDir = values.output as string || getDefaultOutputDir();
       const result = await ffmpeg.extractChapters(input, outputDir, { format, quality, dryRun });
 
       if (result.success) {
@@ -1207,7 +1210,7 @@ async function runCliMode(values: Record<string, unknown>, positionals: string[]
   // Handle silence split
   if (values.silence) {
     for (const input of inputs) {
-      const outputDir = values.output as string || config.getOutputDir();
+      const outputDir = values.output as string || getDefaultOutputDir();
       const result = await ffmpeg.splitBySilence(input, outputDir, { format, quality, dryRun });
 
       if (result.success) {
