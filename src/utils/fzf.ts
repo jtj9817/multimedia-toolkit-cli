@@ -181,6 +181,14 @@ export class FzfSelector {
         // Use ffprobe for media files, bat/cat for others
         const previewCmd = `
           file="{}";
+          root="\${FZF_PREVIEW_ROOT:-}";
+          if [[ -n "$root" && "$file" != /* ]]; then
+            file="$root/$file";
+          fi;
+          if [[ ! -e "$file" ]]; then
+            echo "File not found: $file";
+            exit 0;
+          fi;
           if [[ "$file" =~ \\.(mp4|mkv|avi|mov|webm|mp3|wav|flac|aac|ogg|opus|m4a)$ ]]; then
             echo "📹 Media File Information:";
             echo "─────────────────────────";
@@ -190,16 +198,16 @@ export class FzfSelector {
                 echo "Unable to read media info (ffprobe/jq error)";
             else
               echo "ffprobe not found";
-              ls -lh "$file";
+              ls -lh -- "$file";
             fi;
           elif command -v bat &>/dev/null && [[ "$file" =~ \\.(txt|md|json|yml|yaml|sh|ts|js|py)$ ]]; then
             bat --color=always --style=numbers --line-range=:50 "$file";
           else
             echo "📄 File Information:";
             echo "─────────────────────────";
-            file "$file";
+            file -- "$file";
             echo "";
-            ls -lh "$file";
+            ls -lh -- "$file";
           fi
         `.trim();
 
@@ -213,8 +221,14 @@ export class FzfSelector {
       // Use shell to execute the piped command properly
       const shellCmd = `${findCmd} 2>/dev/null | fzf ${fzfArgs.map(arg => this.escapeForShell(arg)).join(' ')}`;
 
+      const previewRoot = resolve(directory);
       const proc = spawn('bash', ['-c', shellCmd], {
-        stdio: ['inherit', 'pipe', 'inherit']
+        stdio: ['inherit', 'pipe', 'inherit'],
+        env: {
+          ...process.env,
+          SHELL: process.env.SHELL && process.env.SHELL.includes('bash') ? process.env.SHELL : 'bash',
+          FZF_PREVIEW_ROOT: previewRoot
+        }
       });
 
       let output = '';
