@@ -180,7 +180,7 @@ export class FzfSelector {
       if (options.preview) {
         // Use ffprobe for media files, bat/cat for others
         const previewCmd = `
-          file="{}";
+          file={};
           root="\${FZF_PREVIEW_ROOT:-}";
           if [[ -n "$root" && "$file" != /* ]]; then
             file="$root/$file";
@@ -205,9 +205,40 @@ export class FzfSelector {
           else
             echo "📄 File Information:";
             echo "─────────────────────────";
-            file -- "$file";
-            echo "";
-            ls -lh -- "$file";
+            if command -v bun &>/dev/null; then
+              bun -e '(async () => {
+                const path = process.argv[1];
+                if (!path) {
+                  console.error("No path provided");
+                  process.exit(1);
+                }
+                const file = Bun.file(path);
+                const stats = await file.stat();
+                const formatMs = (ms) => (typeof ms === "number" ? new Date(ms).toISOString() : "N/A");
+                const lines = [
+                  ["Path", path],
+                  ["Size", stats.size + " bytes"],
+                  ["Mode", stats.mode],
+                  ["UID", stats.uid],
+                  ["GID", stats.gid],
+                  ["Accessed", formatMs(stats.atimeMs)],
+                  ["Modified", formatMs(stats.mtimeMs)],
+                  ["Changed", formatMs(stats.ctimeMs)],
+                  ["Birth", formatMs(stats.birthtimeMs)],
+                  ["Last Modified", file.lastModified]
+                ];
+                for (const [label, value] of lines) {
+                  console.log(label + ": " + value);
+                }
+              })().catch((err) => {
+                console.error(err?.message || err);
+                process.exit(1);
+              });' -- "$file";
+            else
+              file -- "$file";
+              echo "";
+              ls -lh -- "$file";
+            fi;
           fi
         `.trim();
 
