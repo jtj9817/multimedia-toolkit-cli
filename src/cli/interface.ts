@@ -5,10 +5,14 @@
 
 import * as readline from 'readline';
 import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoResolution, VideoOutputFormat, GifWebpPresetKey, ImageOutputFormat, GifWebpConversionOptions } from '../types';
-import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS, IMAGE_OUTPUT_FORMATS } from '../types';
+import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '../types';
 import { VIDEO_TRANSCODE_PRESETS } from '../media/video-presets';
 import { GIF_WEBP_PRESETS, FPS_OPTIONS, WIDTH_OPTIONS, WEBP_QUALITY_OPTIONS, GIF_DITHER_OPTIONS, getDefaultGifWebpOptions } from '../media/gif-webp-presets';
 import { fzfSelector } from '../utils/fzf';
+
+// ANSI escape regex for stripping color codes
+// eslint-disable-next-line no-control-regex
+const ANSI_REGEX = /\x1b\[[0-9;]*m/g;
 
 // ANSI color codes
 const c = {
@@ -495,7 +499,6 @@ export class CLIInterface {
   async withSpinner<T>(message: string, task: () => Promise<T>): Promise<T> {
     const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let frameIndex = 0;
-    let running = true;
 
     const spinner = setInterval(() => {
       process.stdout.write(`\r${c.cyan}${frames[frameIndex]}${c.reset} ${message}`);
@@ -504,12 +507,10 @@ export class CLIInterface {
 
     try {
       const result = await task();
-      running = false;
       clearInterval(spinner);
       process.stdout.write(`\r${c.green}✓${c.reset} ${message}\n`);
       return result;
     } catch (error) {
-      running = false;
       clearInterval(spinner);
       process.stdout.write(`\r${c.red}✗${c.reset} ${message}\n`);
       throw error;
@@ -522,7 +523,7 @@ export class CLIInterface {
   box(title: string, content: string[]): void {
     const maxWidth = Math.max(
       title.length,
-      ...content.map(l => l.replace(/\x1b\[[0-9;]*m/g, '').length)
+      ...content.map(l => l.replace(ANSI_REGEX, '').length)
     );
     const width = maxWidth + 4;
 
@@ -531,7 +532,7 @@ export class CLIInterface {
     console.log(`${c.cyan}├${'─'.repeat(width)}┤${c.reset}`);
 
     content.forEach(line => {
-      const plainLine = line.replace(/\x1b\[[0-9;]*m/g, '');
+      const plainLine = line.replace(ANSI_REGEX, '');
       const padding = maxWidth - plainLine.length + 2;
       console.log(`${c.cyan}│${c.reset} ${line}${' '.repeat(padding)} ${c.cyan}│${c.reset}`);
     });

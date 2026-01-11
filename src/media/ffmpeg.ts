@@ -17,8 +17,7 @@ import type {
   VideoTranscodeOptions,
   VideoTranscodePreset,
   VideoScaleSettings,
-  GifWebpConversionOptions,
-  ImageOutputFormat
+  GifWebpConversionOptions
 } from '../types';
 import { QUALITY_PRESETS } from '../types';
 import { VIDEO_TRANSCODE_PRESETS } from './video-presets';
@@ -718,10 +717,7 @@ export class FFmpegWrapper {
         const simpleStderr = await new Response(simpleProc.stderr).text();
         await simpleProc.exited;
 
-        const maxVolMatch = /max_volume: ([-\d.]+) dB/.exec(simpleStderr);
         const meanVolMatch = /mean_volume: ([-\d.]+) dB/.exec(simpleStderr);
-
-        const maxVol = maxVolMatch ? parseFloat(maxVolMatch[1]) : -10;
         const meanVol = meanVolMatch ? parseFloat(meanVolMatch[1]) : -20;
 
         // Generate synthetic waveform based on volume stats

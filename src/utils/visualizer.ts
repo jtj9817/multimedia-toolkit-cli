@@ -122,7 +122,7 @@ export class WaveformVisualizer {
 
     // Build the waveform line with clip highlighting
     const barChars: string[] = [];
-    const markerLine: string[] = new Array(this.width).fill(' ');
+    const markerLine: string[] = Array.from({ length: this.width }, () => ' ');
 
     for (let i = 0; i < this.width; i++) {
       const time = (i / this.width) * duration;

@@ -5,7 +5,7 @@
 
 import { spawn } from 'child_process';
 import { existsSync, statSync } from 'fs';
-import { resolve, relative, join } from 'path';
+import { resolve } from 'path';
 import type { OperationResult } from '../types';
 
 export interface FzfOptions {

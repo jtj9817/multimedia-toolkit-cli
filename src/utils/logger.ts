@@ -6,7 +6,7 @@
 import { config } from '../config/config';
 import { db } from '../db/database';
 import { existsSync, mkdirSync, writeFileSync, appendFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import type { ProcessRecord, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
 
 // ANSI color codes for terminal output

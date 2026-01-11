@@ -6,7 +6,7 @@
 import { Database } from 'bun:sqlite';
 import { join } from 'path';
 import { homedir } from 'os';
-import type { ProcessRecord, ClipPreset, AppConfig } from '../types';
+import type { ProcessRecord, ClipPreset } from '../types';
 
 const DATA_DIR = join(homedir(), '.multimedia-toolkit');
 const DB_PATH = join(DATA_DIR, 'toolkit.db');

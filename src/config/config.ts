@@ -67,7 +67,7 @@ class ConfigManager {
       try {
         const fileConfig = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
         return { ...DEFAULT_CONFIG, ...fileConfig };
-      } catch (error) {
+      } catch {
         console.warn('Warning: Could not parse config file, using defaults');
       }
     }
