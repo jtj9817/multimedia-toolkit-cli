@@ -386,10 +386,11 @@ export class FFmpegWrapper {
       format?: OutputFormat;
       quality?: string;
       chapterIndices?: number[];
+      baseFileName?: string;
       dryRun?: boolean;
     } = {}
   ): Promise<OperationResult<{ outputs: string[]; chapters: Chapter[] }>> {
-    const { format = 'mp3', quality = 'music_medium', chapterIndices, dryRun = false } = options;
+    const { format = 'mp3', quality = 'music_medium', chapterIndices, baseFileName, dryRun = false } = options;
 
     // Get chapters
     const infoResult = await this.getMediaInfo(inputPath);
@@ -412,6 +413,7 @@ export class FFmpegWrapper {
     const result = await this.extractMultipleClips(inputPath, clips, outputDir, {
       format,
       quality,
+      baseFileName,
       dryRun
     });
 
@@ -493,6 +495,7 @@ export class FFmpegWrapper {
       noiseThreshold?: string;
       minSilenceDuration?: number;
       minSegmentDuration?: number;
+      baseFileName?: string;
       dryRun?: boolean;
     } = {}
   ): Promise<OperationResult<{ outputs: string[]; segments: { start: number; end: number }[] }>> {
@@ -502,6 +505,7 @@ export class FFmpegWrapper {
       noiseThreshold = '-30dB',
       minSilenceDuration = 0.5,
       minSegmentDuration = 5,
+      baseFileName,
       dryRun = false
     } = options;
 
@@ -548,6 +552,7 @@ export class FFmpegWrapper {
     const result = await this.extractMultipleClips(inputPath, clips, outputDir, {
       format,
       quality,
+      baseFileName,
       dryRun
     });
 

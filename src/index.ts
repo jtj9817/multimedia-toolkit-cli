@@ -17,6 +17,7 @@ import { basename, join } from 'path';
 import { randomUUID } from 'crypto';
 
 import { OutputDestinationDialog } from '@/cli/dialogs/output-destination';
+import { PresetManagementMenu } from '@/cli/menus/preset-management-menu';
 import { SettingsMenu } from '@/cli/menus/settings-menu';
 import { config } from './config/config';
 import { db } from './db/database';
@@ -354,12 +355,24 @@ async function handleClipAudio(): Promise<void> {
   const quality = await cli.selectQuality();
 
   // Output directory
-  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
+  const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
+  const outputDialog = new OutputDestinationDialog(cli, organizer);
+  const outputChoice = await outputDialog.promptForOutputDirectory({
+    defaultBaseName: baseName,
+    defaultDir: config.get('defaultOutputDir'),
+    allowRename: true,
+    renameLabel: 'Rename output prefix?'
+  });
+  const outputDir = outputChoice.outputDir;
 
   // Execute
   const jobId = randomUUID();
   const result = await cli.withSpinner(`Extracting ${clips.length} clip(s)...`, () =>
-    ffmpeg.extractMultipleClips(inputPath, clips, outputDir, { format, quality })
+    ffmpeg.extractMultipleClips(inputPath, clips, outputDir, {
+      format,
+      quality,
+      baseFileName: outputChoice.baseName
+    })
   );
 
   if (result.success) {
@@ -494,7 +507,13 @@ async function handleBatchProcess(): Promise<void> {
 
   const format = await cli.selectFormat();
   const quality = await cli.selectQuality();
-  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
+  const outputDialog = new OutputDestinationDialog(cli, organizer);
+  const outputChoice = await outputDialog.promptForOutputDirectory({
+    defaultBaseName: 'output',
+    defaultDir: config.get('defaultOutputDir'),
+    allowRename: false
+  });
+  const outputDir = outputChoice.outputDir;
 
   // Process files
   let completed = 0;
@@ -564,10 +583,22 @@ async function handleChapterExtraction(): Promise<void> {
 
   const format = await cli.selectFormat();
   const quality = await cli.selectQuality();
-  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
+  const outputDialog = new OutputDestinationDialog(cli, organizer);
+  const outputChoice = await outputDialog.promptForOutputDirectory({
+    defaultBaseName: basename(inputPath).replace(/\.[^.]+$/, ''),
+    defaultDir: config.get('defaultOutputDir'),
+    allowRename: true,
+    renameLabel: 'Rename output prefix?'
+  });
+  const outputDir = outputChoice.outputDir;
 
   const result = await cli.withSpinner('Extracting chapters...', () =>
-    ffmpeg.extractChapters(inputPath, outputDir, { format, quality, chapterIndices })
+    ffmpeg.extractChapters(inputPath, outputDir, {
+      format,
+      quality,
+      chapterIndices,
+      baseFileName: outputChoice.baseName
+    })
   );
 
   if (result.success) {
@@ -598,7 +629,14 @@ async function handleSilenceSplit(): Promise<void> {
 
   const format = await cli.selectFormat();
   const quality = await cli.selectQuality();
-  const outputDir = await cli.prompt('Output directory', getDefaultOutputDir());
+  const outputDialog = new OutputDestinationDialog(cli, organizer);
+  const outputChoice = await outputDialog.promptForOutputDirectory({
+    defaultBaseName: basename(inputPath).replace(/\.[^.]+$/, ''),
+    defaultDir: config.get('defaultOutputDir'),
+    allowRename: true,
+    renameLabel: 'Rename output prefix?'
+  });
+  const outputDir = outputChoice.outputDir;
 
   // Detect silence first
   cli.info('Analyzing audio for silence...');
@@ -624,7 +662,8 @@ async function handleSilenceSplit(): Promise<void> {
       quality,
       noiseThreshold: `${threshold}dB`,
       minSilenceDuration: parseFloat(minSilence),
-      minSegmentDuration: parseFloat(minSegment)
+      minSegmentDuration: parseFloat(minSegment),
+      baseFileName: outputChoice.baseName
     })
   );
 
@@ -780,54 +819,10 @@ async function handleGifWebpConvert(): Promise<void> {
 }
 
 async function handlePresetManagement(): Promise<void> {
-  const options: MenuOption[] = [
-    { key: '1', label: 'List Presets', action: async () => {
-      console.log('\n' + presets.listPresets() + '\n');
-    }},
-    { key: '2', label: 'View Preset Details', action: async () => {
-      const name = await cli.prompt('Preset name');
-      const result = presets.get(name);
-      if (result.success && result.data) {
-        console.log('\n' + presets.formatPreset(result.data) + '\n');
-      } else {
-        cli.error(result.error || 'Preset not found');
-      }
-    }},
-    { key: '3', label: 'Create Preset', action: async () => {
-      const name = await cli.prompt('Preset name');
-      const sourcePattern = await cli.prompt('Source file pattern (regex, optional)');
-      const clips = await cli.promptMultipleClips();
-      const result = presets.createFromClips(name, clips, sourcePattern || undefined);
-      if (result.success) {
-        cli.success(`Preset "${name}" created`);
-      } else {
-        cli.error(result.error || 'Failed to create preset');
-      }
-    }},
-    { key: '4', label: 'Delete Preset', action: async () => {
-      const name = await cli.prompt('Preset name to delete');
-      if (await cli.confirm(`Delete preset "${name}"?`, false)) {
-        const result = presets.delete(name);
-        if (result.success) {
-          cli.success(`Preset "${name}" deleted`);
-        } else {
-          cli.error(result.error || 'Failed to delete');
-        }
-      }
-    }},
-    { key: '5', label: 'Export Presets', action: async () => {
-      const json = presets.exportToJson();
-      const outputPath = join(config.getOutputDir(), `presets_export_${Date.now()}.json`);
-      await Bun.write(outputPath, json);
-      cli.success(`Exported to: ${outputPath}`);
-    }},
-    { key: '0', label: 'Back', action: async () => {} }
-  ];
-
-  const choice = await cli.menu('Preset Management', options);
-  const selected = options.find(o => o.key === choice);
-  if (selected && selected.key !== '0') {
-    await selected.action();
+  const menu = new PresetManagementMenu(cli);
+  const action = await menu.run();
+  if (action) {
+    await action();
   }
 }
 
