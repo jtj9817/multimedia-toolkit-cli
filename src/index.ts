@@ -16,6 +16,8 @@ import { existsSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import { randomUUID } from 'crypto';
 
+import { OutputDestinationDialog } from '@/cli/dialogs/output-destination';
+import { SettingsMenu } from '@/cli/menus/settings-menu';
 import { config } from './config/config';
 import { db } from './db/database';
 import { ffmpeg } from './media/ffmpeg';
@@ -252,8 +254,15 @@ async function handleExtractAudio(): Promise<void> {
 
   // Output path
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
-  const defaultOutput = organizer.getOutputPath(baseName, format);
-  const outputPath = await cli.prompt('Output path', defaultOutput);
+  const outputDialog = new OutputDestinationDialog(cli, organizer);
+  const outputChoice = await outputDialog.promptForSingleOutput({
+    format,
+    defaultBaseName: baseName,
+    defaultDir: config.get('defaultOutputDir'),
+    allowRename: true,
+    allowCustomPath: true
+  });
+  const outputPath = outputChoice.outputPath || organizer.getOutputPath(baseName, format);
 
   // Confirm and execute
   const dryRun = await cli.confirm('Dry run first?', false);
@@ -723,8 +732,15 @@ async function handleGifWebpConvert(): Promise<void> {
 
   // Generate output path
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
-  const defaultOutput = organizer.getOutputPath(baseName, format);
-  const outputPath = await cli.prompt('Output path', defaultOutput);
+  const outputDialog = new OutputDestinationDialog(cli, organizer);
+  const outputChoice = await outputDialog.promptForSingleOutput({
+    format,
+    defaultBaseName: baseName,
+    defaultDir: config.get('defaultOutputDir'),
+    allowRename: true,
+    allowCustomPath: true
+  });
+  const outputPath = outputChoice.outputPath || organizer.getOutputPath(baseName, format);
 
   // Confirm and execute
   const dryRun = await cli.confirm('Dry run first?', false);
@@ -845,56 +861,10 @@ async function handleViewHistory(): Promise<void> {
 async function handleSettings(): Promise<void> {
   config.printConfig();
 
-  const options: MenuOption[] = [
-    { key: '1', label: 'Change output directory', action: async () => {
-      const dir = await cli.prompt('New output directory', config.get('defaultOutputDir'));
-      config.set('defaultOutputDir', dir);
-      cli.success('Updated');
-    }},
-    { key: '2', label: 'Change default quality', action: async () => {
-      const quality = await cli.selectQuality();
-      config.set('defaultQuality', quality);
-      cli.success('Updated');
-    }},
-    { key: '3', label: 'Change default format', action: async () => {
-      const format = await cli.selectFormat();
-      config.set('defaultFormat', format);
-      cli.success('Updated');
-    }},
-    { key: '4', label: 'Change default video preset', action: async () => {
-      const preset = await cli.selectVideoPreset(config.get('defaultVideoPreset'));
-      config.set('defaultVideoPreset', preset);
-      const presetData = VIDEO_TRANSCODE_PRESETS[preset];
-      config.set('defaultVideoFormat', presetData.container);
-      cli.success('Updated');
-    }},
-    { key: '5', label: 'Change default video format', action: async () => {
-      const format = await cli.selectVideoFormat(config.get('defaultVideoFormat'));
-      config.set('defaultVideoFormat', format);
-      cli.success('Updated');
-    }},
-    { key: '6', label: 'Change default video resolution', action: async () => {
-      const resolution = await cli.selectVideoResolution(config.get('defaultVideoResolution'));
-      config.set('defaultVideoResolution', resolution);
-      cli.success('Updated');
-    }},
-    { key: '7', label: 'Toggle auto-organize', action: async () => {
-      config.set('autoOrganize', !config.get('autoOrganize'));
-      cli.success(`Auto-organize: ${config.get('autoOrganize') ? 'ON' : 'OFF'}`);
-    }},
-    { key: '8', label: 'Reset to defaults', action: async () => {
-      if (await cli.confirm('Reset all settings?', false)) {
-        config.reset();
-        cli.success('Settings reset');
-      }
-    }},
-    { key: '0', label: 'Back', action: async () => {} }
-  ];
-
-  const choice = await cli.menu('Settings', options);
-  const selected = options.find(o => o.key === choice);
-  if (selected && selected.key !== '0') {
-    await selected.action();
+  const menu = new SettingsMenu(cli);
+  const action = await menu.run();
+  if (action) {
+    await action();
   }
 }
 
