@@ -5,7 +5,7 @@ This document reviews the current Multimedia Toolkit codebase and proposes refac
 Scope of review (primary files):
 - `src/index.ts` (entrypoint, CLI + interactive orchestration)
 - `src/cli/interface.ts` (prompting, menu rendering, FZF feedback loops)
-- `src/utils/fzf.ts` (FZF integration; currently Node `child_process`)
+- `src/utils/fzf.ts` (FZF integration; now Bun.spawn())
 - `src/media/ffmpeg.ts` (FFmpeg/FFprobe wrapper, command building)
 - `src/db/database.ts` (SQLite + schema management)
 - `src/config/config.ts` (config persistence + tool validation)
@@ -16,13 +16,16 @@ Supplementary docs consulted:
 - `docs/development.md` (testing section: currently marked "future")
 - `docs/api-reference.md`, `docs/user-guide.md`, `docs/configuration.md` (API/behavior expectations)
 
-## Status Update (Phase 1-2 Applied)
+## Status Update (Phase 1-3 Applied)
 
 - Output destination dialog implemented at `src/cli/dialogs/output-destination.ts`.
 - Numbered menu template implemented at `src/cli/menus/numbered-menu.ts` and adopted by Settings + Presets menus.
 - Command-driven interactive flows implemented at `src/cli/commands/interactive-commands.ts`, with shared context in `src/cli/commands/context.ts`.
 - Shared helpers added at `src/cli/history.ts`, `src/utils/format.ts`, and `src/utils/process-logging.ts`.
 - `src/index.ts` now builds the interactive menu from the command list and uses shared helpers in CLI mode.
+- FZF now uses `Bun.spawn()` and no longer depends on Node `child_process`.
+- Output organization is centralized in `src/utils/path.ts` and shared by config + output organizer.
+- Database migrations + repository layer added under `src/db/`.
 
 ## High-Impact Findings (What Blocks Testing Today)
 
@@ -32,8 +35,8 @@ Supplementary docs consulted:
 - Recommendation: introduce dependency injection and/or environment-overridable base paths, and avoid instantiating singletons at import time (details below).
 
 2) Node compatibility layers are used where Bun-native APIs are expected
-- `src/utils/fzf.ts` uses `child_process.spawn` and `which`. This is the most obvious violation of the "Bun.spawn()" guideline and is a common source of subtle TTY issues.
-- `src/db/database.ts` and `src/utils/logger.ts` use `require(...)` inside ESM files.
+- `src/utils/logger.ts` still uses `require(...)` for log file reading; the rest of the refactor removed Node usage in FZF and database setup.
+- A shared Bun-first process runner helper is still missing (see Proposal #6).
 
 3) Documentation drift exists; tests will help prevent regressions
 - `docs/architecture.md` and `docs/api-reference.md` describe APIs/paths that do not match the current implementation in several places (e.g., logging location, database class naming, missing referenced docs like `docs/testing.md` / `docs/database-schema.md`).
@@ -249,6 +252,9 @@ Testing impact:
 - Unit tests for naming rules and sanitization.
 - Snapshot tests for a deterministic `clock` to avoid flaky timestamps.
 
+Status:
+- Implemented via `src/utils/path.ts`, with `OutputOrganizer` and `ConfigManager` sharing the same logic.
+
 ### 6) Process Runner Helper for Bun.spawn() (Standardized Result + Errors)
 
 Problem:
@@ -269,6 +275,9 @@ Trade-offs:
 Testing impact:
 - Unit tests for the helper with controlled inputs (and/or integration tests for trivial commands like `echo`).
 - Higher-level module tests can inject a fake runner and assert command args.
+
+Status:
+- Not implemented yet; `Bun.spawn()` usage is still duplicated across media/config modules.
 
 ### 7) Database Layer Improvements: Type Safety + Transactions
 
@@ -295,6 +304,10 @@ Testing impact:
 - Schema assertions (tables/columns exist).
 - Transaction tests (ensure atomic behavior).
 
+Status:
+- Implemented: migrations live in `src/db/migrations.ts` and repositories under `src/db/repositories/`.
+- `createProcess(...)` now returns a numeric ID.
+
 ### 8) FZF Integration: Move to Bun.spawn() and Make It Testable
 
 Problem:
@@ -316,6 +329,9 @@ Trade-offs:
 Testing impact:
 - Unit tests for command-building and output parsing.
 - Manual smoke test remains the source of truth for terminal UX.
+
+Status:
+- Partially implemented: FZF now uses `Bun.spawn()`, but the shell command assembly/output parsing is still inline and not split into pure helpers.
 
 ## Testing Strategy (bun:test)
 
@@ -373,14 +389,14 @@ Phase 2: Core architecture cleanup for maintainability ✅
 - Introduce `CommandContext` and convert handlers into command classes incrementally
 - Extract pure "plan builders" from the command implementations
 
-Phase 3: Bun alignment and robustness
-- Replace Node `child_process` usage in `src/utils/fzf.ts` with `Bun.spawn()`
-- Consolidate output organization (single source of truth)
-- Add database repository layer + migrations
+Phase 3: Bun alignment and robustness ✅
+- Replace Node `child_process` usage in `src/utils/fzf.ts` with `Bun.spawn()` ✅
+- Consolidate output organization (single source of truth) ✅
+- Add database repository layer + migrations ✅
 
 ## Notes on Bun/ESM Compatibility
 
 Areas to prioritize:
-- Remove `require(...)` from ESM modules (`src/db/database.ts`, `src/utils/logger.ts`) to reduce bundler and type-check friction.
+- Remove `require(...)` from ESM modules (`src/utils/logger.ts`) to reduce bundler and type-check friction.
 - Prefer `Bun.spawn()` over Node's `child_process` for process management.
 - Prefer `@/` path aliases (already configured in `tsconfig.json`) to avoid deep relative imports and simplify refactors.
