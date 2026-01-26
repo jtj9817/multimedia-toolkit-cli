@@ -9,6 +9,7 @@ import { buildTimestampedName, resolveOrganizedSubDir } from '@/utils/path';
 import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '@/types';
 import type { AppPaths } from '@/app/paths';
 import type { DatabaseManager } from '@/db/database';
+import { runProcess } from '@/utils/process-runner';
 
 export interface ConfigManagerOptions {
   paths: AppPaths;
@@ -165,12 +166,11 @@ class ConfigManager {
 
     // Check ffmpeg
     try {
-      const proc = Bun.spawn([this.config.ffmpegPath!, '-version'], {
+      const result = await runProcess([this.config.ffmpegPath!, '-version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-      await proc.exited;
-      if (proc.exitCode !== 0) {
+      if (result.exitCode !== 0) {
         missing.push('ffmpeg');
       }
     } catch {
@@ -179,12 +179,11 @@ class ConfigManager {
 
     // Check ffprobe
     try {
-      const proc = Bun.spawn([this.config.ffprobePath!, '-version'], {
+      const result = await runProcess([this.config.ffprobePath!, '-version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-      await proc.exited;
-      if (proc.exitCode !== 0) {
+      if (result.exitCode !== 0) {
         missing.push('ffprobe');
       }
     } catch {
@@ -193,12 +192,11 @@ class ConfigManager {
 
     // Check yt-dlp (optional but warn)
     try {
-      const proc = Bun.spawn([this.config.ytdlpPath!, '--version'], {
+      const result = await runProcess([this.config.ytdlpPath!, '--version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-      await proc.exited;
-      if (proc.exitCode !== 0) {
+      if (result.exitCode !== 0) {
         missing.push('yt-dlp (optional - needed for URL downloads)');
       }
     } catch {

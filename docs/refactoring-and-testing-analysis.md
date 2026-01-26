@@ -408,6 +408,7 @@ Phase 5: Process runner + FZF test seams (Proposals #6 + #8)
 - Replace direct `Bun.spawn()` calls in `src/media/ffmpeg.ts`, `src/media/downloader.ts`, `src/config/config.ts`, and `src/utils/fzf.ts` with the shared runner.
 - Split FZF into pure helpers (`buildFzfShellCommand(...)`, `parseFzfOutput(...)`) plus an I/O boundary function; keep `bun run test-fzf.ts` as the manual verification step.
 - Add unit tests for command building, parsing, and process-runner error handling, and update docs to reflect new helper usage.
+- Helper usage: prefer `runProcess(...)` for new subprocess calls, and import `buildFzfShellCommand(...)`/`parseFzfOutput(...)` for unit tests around the FZF boundary.
 
 ## Notes on Bun/ESM Compatibility
 

@@ -7,6 +7,7 @@ import type { ConfigManager } from '@/config/config';
 import type { InputSource, MediaMetadata, OperationResult } from '@/types';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { runProcess } from '@/utils/process-runner';
 
 export class MediaDownloader {
   private ytdlpPath: string;
@@ -68,7 +69,7 @@ export class MediaDownloader {
    */
   async getUrlMetadata(url: string): Promise<OperationResult<MediaMetadata & { title: string; formats?: unknown[] }>> {
     try {
-      const proc = Bun.spawn([
+      const result = await runProcess([
         this.ytdlpPath,
         '--dump-json',
         '--no-download',
@@ -78,15 +79,11 @@ export class MediaDownloader {
         stderr: 'pipe'
       });
 
-      const output = await new Response(proc.stdout).text();
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `Failed to get URL metadata: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Failed to get URL metadata: ${result.stderr}` };
       }
 
-      const data = JSON.parse(output);
+      const data = JSON.parse(result.stdout);
 
       const metadata: MediaMetadata & { title: string; formats?: unknown[] } = {
         title: data.title || 'Unknown',
@@ -170,16 +167,13 @@ export class MediaDownloader {
       console.log(`\n📥 Downloading from: ${url}`);
       console.log(`   Output: ${finalOutputPath}\n`);
 
-      const proc = Bun.spawn([this.ytdlpPath, ...args], {
+      const result = await runProcess([this.ytdlpPath, ...args], {
         stdout: 'inherit',  // Show progress
         stderr: 'pipe'
       });
 
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `Download failed: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Download failed: ${result.stderr}` };
       }
 
       // yt-dlp might change the extension, find the actual file
@@ -246,7 +240,7 @@ export class MediaDownloader {
    */
   async listFormats(url: string): Promise<OperationResult<string>> {
     try {
-      const proc = Bun.spawn([
+      const result = await runProcess([
         this.ytdlpPath,
         '-F',
         url
@@ -255,15 +249,11 @@ export class MediaDownloader {
         stderr: 'pipe'
       });
 
-      const output = await new Response(proc.stdout).text();
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `Failed to list formats: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Failed to list formats: ${result.stderr}` };
       }
 
-      return { success: true, data: output };
+      return { success: true, data: result.stdout };
     } catch (error) {
       return { success: false, error: `Failed to list formats: ${error}` };
     }
@@ -341,12 +331,11 @@ export class MediaDownloader {
    */
   async isYtdlpAvailable(): Promise<boolean> {
     try {
-      const proc = Bun.spawn([this.ytdlpPath, '--version'], {
+      const result = await runProcess([this.ytdlpPath, '--version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-      const exitCode = await proc.exited;
-      return exitCode === 0;
+      return result.exitCode === 0;
     } catch {
       return false;
     }
@@ -357,20 +346,15 @@ export class MediaDownloader {
    */
   async updateYtdlp(): Promise<OperationResult<string>> {
     try {
-      const proc = Bun.spawn([this.ytdlpPath, '-U'], {
+      const result = await runProcess([this.ytdlpPath, '-U'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-
-      const output = await new Response(proc.stdout).text();
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `Update failed: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Update failed: ${result.stderr}` };
       }
 
-      return { success: true, data: output };
+      return { success: true, data: result.stdout };
     } catch (error) {
       return { success: false, error: `Update failed: ${error}` };
     }

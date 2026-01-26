@@ -21,6 +21,7 @@ import type {
 } from '@/types';
 import { QUALITY_PRESETS } from '@/types';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
+import { runProcess } from '@/utils/process-runner';
 
 const WEBM_OPUS_ARGS = ['-vbr', 'on', '-compression_level', '10', '-application', 'audio'];
 const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
@@ -44,7 +45,7 @@ export class FFmpegWrapper {
    */
   async getMediaInfo(inputPath: string): Promise<OperationResult<MediaMetadata>> {
     try {
-      const proc = Bun.spawn([
+      const result = await runProcess([
         this.ffprobePath,
         '-v', 'quiet',
         '-print_format', 'json',
@@ -57,15 +58,11 @@ export class FFmpegWrapper {
         stderr: 'pipe'
       });
 
-      const output = await new Response(proc.stdout).text();
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `FFprobe failed: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `FFprobe failed: ${result.stderr}` };
       }
 
-      const data = JSON.parse(output);
+      const data = JSON.parse(result.stdout);
       const format = data.format || {};
       const audioStream = data.streams?.find((s: { codec_type: string }) => s.codec_type === 'audio');
       const chapters: Chapter[] = (data.chapters || []).map((ch: { id: number; tags?: { title?: string }; start_time: string; end_time: string }, idx: number) => ({
@@ -205,16 +202,12 @@ export class FFmpegWrapper {
     }
 
     try {
-      const proc = Bun.spawn([this.ffmpegPath, ...args], {
+      const result = await runProcess([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `FFmpeg failed: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `FFmpeg failed: ${result.stderr}` };
       }
 
       return { success: true, data: { command: fullCommand, outputPath } };
@@ -307,16 +300,12 @@ export class FFmpegWrapper {
     }
 
     try {
-      const proc = Bun.spawn([this.ffmpegPath, ...args], {
+      const result = await runProcess([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `FFmpeg failed: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `FFmpeg failed: ${result.stderr}` };
       }
 
       return { success: true, data: { command: fullCommand, outputPath } };
@@ -443,7 +432,7 @@ export class FFmpegWrapper {
     const { noiseThreshold = '-30dB', minDuration = 0.5 } = options;
 
     try {
-      const proc = Bun.spawn([
+      const result = await runProcess([
         this.ffmpegPath,
         '-i', inputPath,
         '-af', `silencedetect=noise=${noiseThreshold}:d=${minDuration}`,
@@ -454,8 +443,11 @@ export class FFmpegWrapper {
         stderr: 'pipe'
       });
 
-      const stderr = await new Response(proc.stderr).text();
-      await proc.exited;
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Silence detection failed: ${result.stderr}` };
+      }
+
+      const stderr = result.stderr;
 
       // Parse silence detection output
       const segments: SilenceSegment[] = [];
@@ -642,19 +634,16 @@ export class FFmpegWrapper {
         };
       }
 
-      const proc = Bun.spawn([this.ffmpegPath, ...args], {
+      const result = await runProcess([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
 
-      const exitCode = await proc.exited;
-
       // Clean up concat file
       await Bun.$`rm -f ${concatFile}`;
 
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `Merge failed: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Merge failed: ${result.stderr}` };
       }
 
       return { success: true, data: { command: fullCommand, outputPath } };
@@ -681,7 +670,7 @@ export class FFmpegWrapper {
       }
 
       // Extract audio levels using ffmpeg
-      const proc = Bun.spawn([
+      const result = await runProcess([
         this.ffmpegPath,
         '-i', inputPath,
         '-af', `asetnsamples=n=${samples},astats=metadata=1:reset=1`,
@@ -692,8 +681,11 @@ export class FFmpegWrapper {
         stderr: 'pipe'
       });
 
-      const stderr = await new Response(proc.stderr).text();
-      await proc.exited;
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Waveform generation failed: ${result.stderr}` };
+      }
+
+      const stderr = result.stderr;
 
       // Parse RMS levels from output
       const rmsRegex = /RMS level dB: ([-\d.]+)/g;
@@ -710,7 +702,7 @@ export class FFmpegWrapper {
       // If we didn't get enough samples, generate simplified data
       if (levels.length < 10) {
         // Fall back to simpler volume detection
-        const simpleProc = Bun.spawn([
+        const simpleResult = await runProcess([
           this.ffmpegPath,
           '-i', inputPath,
           '-af', 'volumedetect',
@@ -721,8 +713,11 @@ export class FFmpegWrapper {
           stderr: 'pipe'
         });
 
-        const simpleStderr = await new Response(simpleProc.stderr).text();
-        await simpleProc.exited;
+        if (simpleResult.exitCode !== 0) {
+          return { success: false, error: `Waveform generation failed: ${simpleResult.stderr}` };
+        }
+
+        const simpleStderr = simpleResult.stderr;
 
         const meanVolMatch = /mean_volume: ([-\d.]+) dB/.exec(simpleStderr);
         const meanVol = meanVolMatch ? parseFloat(meanVolMatch[1]) : -20;
@@ -945,15 +940,13 @@ export class FFmpegWrapper {
       paletteArgs.push(paletteFile);
 
       if (!dryRun) {
-        const paletteProc = Bun.spawn([this.ffmpegPath, ...paletteArgs], {
+        const paletteResult = await runProcess([this.ffmpegPath, ...paletteArgs], {
           stdout: 'pipe',
           stderr: 'pipe'
         });
 
-        const paletteExit = await paletteProc.exited;
-        if (paletteExit !== 0) {
-          const error = await new Response(paletteProc.stderr).text();
-          return { success: false, error: `Palette generation failed: ${error}` };
+        if (paletteResult.exitCode !== 0) {
+          return { success: false, error: `Palette generation failed: ${paletteResult.stderr}` };
         }
       }
 
@@ -992,19 +985,16 @@ export class FFmpegWrapper {
         };
       }
 
-      const gifProc = Bun.spawn([this.ffmpegPath, ...gifArgs], {
+      const gifResult = await runProcess([this.ffmpegPath, ...gifArgs], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
 
-      const gifExit = await gifProc.exited;
-
       // Clean up palette file
       await Bun.$`rm -f ${paletteFile}`.catch(() => {});
 
-      if (gifExit !== 0) {
-        const error = await new Response(gifProc.stderr).text();
-        return { success: false, error: `GIF conversion failed: ${error}` };
+      if (gifResult.exitCode !== 0) {
+        return { success: false, error: `GIF conversion failed: ${gifResult.stderr}` };
       }
 
       return { success: true, data: { command: fullCommand, outputPath } };
@@ -1101,16 +1091,12 @@ export class FFmpegWrapper {
     }
 
     try {
-      const proc = Bun.spawn([this.ffmpegPath, ...args], {
+      const result = await runProcess([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
-
-      const exitCode = await proc.exited;
-
-      if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text();
-        return { success: false, error: `WebP conversion failed: ${error}` };
+      if (result.exitCode !== 0) {
+        return { success: false, error: `WebP conversion failed: ${result.stderr}` };
       }
 
       return { success: true, data: { command: fullCommand, outputPath } };

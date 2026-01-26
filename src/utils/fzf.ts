@@ -6,6 +6,7 @@
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
 import type { OperationResult } from '@/types';
+import { runProcess } from '@/utils/process-runner';
 
 export interface FzfOptions {
   /**
@@ -44,141 +45,56 @@ export interface FzfOptions {
   maxDepth?: number;
 }
 
-export class FzfSelector {
-  /**
-   * Escape a shell argument for safe single-quoting
-   */
-  private escapeForShell(arg: string): string {
-    return `'${arg.replace(/'/g, `'"'"'`)}'`;
+export type FzfShellOptions = Required<Omit<FzfOptions, 'directory'>> & {
+  directory: string;
+};
+
+/**
+ * Escape a shell argument for safe single-quoting
+ */
+function escapeForShell(arg: string): string {
+  return `'${arg.replace(/'/g, `'"'"'`)}'`;
+}
+
+export function buildFzfShellCommand(options: FzfShellOptions): string {
+  // Build the shell command for finding files
+  let findCmd = `find "${options.directory}"`;
+
+  if (options.maxDepth !== undefined) {
+    findCmd += ` -maxdepth ${options.maxDepth}`;
   }
 
-  /**
-   * Check if fzf is available on the system
-   */
-  async isFzfAvailable(): Promise<boolean> {
-    try {
-      const proc = Bun.spawn(['fzf', '--version'], {
-        stdout: 'pipe',
-        stderr: 'pipe'
-      });
-      const exitCode = await proc.exited;
-      return exitCode === 0;
-    } catch {
-      return false;
-    }
+  if (!options.showHidden) {
+    findCmd += ` -not -path '*/\\.*'`;
   }
 
-  /**
-   * Select files using fzf
-   */
-  async selectFiles(options: FzfOptions = {}): Promise<OperationResult<string[]>> {
-    const {
-      directory = process.cwd(),
-      multi = false,
-      extensions = [],
-      preview = true,
-      prompt = 'Select file(s)',
-      showHidden = false,
-      maxDepth = undefined
-    } = options;
+  findCmd += ' -type f';
 
-    // Check if fzf is available
-    if (!(await this.isFzfAvailable())) {
-      return {
-        success: false,
-        error: 'fzf is not installed. Install with: sudo apt install fzf'
-      };
-    }
-
-    // Validate directory
-    if (!existsSync(directory)) {
-      return {
-        success: false,
-        error: `Directory not found: ${directory}`
-      };
-    }
-
-    if (!statSync(directory).isDirectory()) {
-      return {
-        success: false,
-        error: `Not a directory: ${directory}`
-      };
-    }
-
-    try {
-      const files = await this.runFzf(directory, {
-        multi,
-        extensions,
-        preview,
-        prompt,
-        showHidden,
-        maxDepth
-      });
-
-      if (files.length === 0) {
-        return {
-          success: false,
-          error: 'No files selected'
-        };
-      }
-
-      return {
-        success: true,
-        data: files
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'FZF selection failed'
-      };
-    }
+  // Add extension filters using proper shell syntax
+  if (options.extensions.length > 0) {
+    const extPatterns = options.extensions.map(ext => `-name '*.${ext}'`).join(' -o ');
+    findCmd += ` \\( ${extPatterns} \\)`;
   }
 
-  /**
-   * Run fzf with specified options
-   */
-  private async runFzf(
-    directory: string,
-    options: Required<Omit<FzfOptions, 'directory'>>
-  ): Promise<string[]> {
-    // Build the shell command for finding files
-    let findCmd = `find "${directory}"`;
+  // Build fzf arguments
+  const fzfArgs: string[] = [
+    '--ansi',
+    '--border',
+    '--height=80%',
+    '--reverse',
+    `--prompt=${options.prompt} > `,
+    '--info=inline',
+    '--bind=ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-all',
+    '--header=Tab: select multiple | Ctrl+A: select all | Enter: confirm | Esc: cancel'
+  ];
 
-    if (options.maxDepth !== undefined) {
-      findCmd += ` -maxdepth ${options.maxDepth}`;
-    }
+  if (options.multi) {
+    fzfArgs.push('--multi');
+  }
 
-    if (!options.showHidden) {
-      findCmd += ` -not -path '*/\\.*'`;
-    }
-
-    findCmd += ' -type f';
-
-    // Add extension filters using proper shell syntax
-    if (options.extensions.length > 0) {
-      const extPatterns = options.extensions.map(ext => `-name '*.${ext}'`).join(' -o ');
-      findCmd += ` \\( ${extPatterns} \\)`;
-    }
-
-    // Build fzf arguments
-    const fzfArgs: string[] = [
-      '--ansi',
-      '--border',
-      '--height=80%',
-      '--reverse',
-      `--prompt=${options.prompt} > `,
-      '--info=inline',
-      '--bind=ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-all',
-      '--header=Tab: select multiple | Ctrl+A: select all | Enter: confirm | Esc: cancel'
-    ];
-
-    if (options.multi) {
-      fzfArgs.push('--multi');
-    }
-
-    if (options.preview) {
-      // Use ffprobe for media files, bat/cat for others
-      const previewCmd = `
+  if (options.preview) {
+    // Use ffprobe for media files, bat/cat for others
+    const previewCmd = `
           file={};
           root="\${FZF_PREVIEW_ROOT:-}";
           if [ -n "$root" ]; then
@@ -274,21 +190,124 @@ export class FzfSelector {
           esac
         `.trim();
 
-      fzfArgs.push(
-        '--preview',
-        previewCmd,
-        '--preview-window=right:50%:wrap'
-      );
+    fzfArgs.push(
+      '--preview',
+      previewCmd,
+      '--preview-window=right:50%:wrap'
+    );
+  }
+
+  // Use shell to execute the piped command properly
+  return `${findCmd} 2>/dev/null | fzf ${fzfArgs.map(arg => escapeForShell(arg)).join(' ')}`;
+}
+
+export function parseFzfOutput(output: string, cwd: string = process.cwd()): string[] {
+  if (!output.trim()) {
+    return [];
+  }
+
+  return output
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map(f => resolve(cwd, f.trim()));
+}
+
+export class FzfSelector {
+
+  /**
+   * Check if fzf is available on the system
+   */
+  async isFzfAvailable(): Promise<boolean> {
+    try {
+      const result = await runProcess(['fzf', '--version'], {
+        stdout: 'pipe',
+        stderr: 'pipe'
+      });
+      return result.exitCode === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Select files using fzf
+   */
+  async selectFiles(options: FzfOptions = {}): Promise<OperationResult<string[]>> {
+    const {
+      directory = process.cwd(),
+      multi = false,
+      extensions = [],
+      preview = true,
+      prompt = 'Select file(s)',
+      showHidden = false,
+      maxDepth = undefined
+    } = options;
+
+    // Check if fzf is available
+    if (!(await this.isFzfAvailable())) {
+      return {
+        success: false,
+        error: 'fzf is not installed. Install with: sudo apt install fzf'
+      };
     }
 
-    // Use shell to execute the piped command properly
-    const shellCmd = `${findCmd} 2>/dev/null | fzf ${fzfArgs.map(arg => this.escapeForShell(arg)).join(' ')}`;
+    // Validate directory
+    if (!existsSync(directory)) {
+      return {
+        success: false,
+        error: `Directory not found: ${directory}`
+      };
+    }
 
-    const previewRoot = resolve(directory);
-    let proc: ReturnType<typeof Bun.spawn>;
+    if (!statSync(directory).isDirectory()) {
+      return {
+        success: false,
+        error: `Not a directory: ${directory}`
+      };
+    }
 
     try {
-      proc = Bun.spawn(['bash', '-c', shellCmd], {
+      const files = await this.runFzf(directory, {
+        multi,
+        extensions,
+        preview,
+        prompt,
+        showHidden,
+        maxDepth
+      });
+
+      if (files.length === 0) {
+        return {
+          success: false,
+          error: 'No files selected'
+        };
+      }
+
+      return {
+        success: true,
+        data: files
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'FZF selection failed'
+      };
+    }
+  }
+
+  /**
+   * Run fzf with specified options
+   */
+  private async runFzf(
+    directory: string,
+    options: Required<Omit<FzfOptions, 'directory'>>
+  ): Promise<string[]> {
+    const shellCmd = buildFzfShellCommand({ directory, ...options });
+    const previewRoot = resolve(directory);
+
+    try {
+      const result = await runProcess(['bash', '-c', shellCmd], {
         stdin: 'inherit',
         stdout: 'pipe',
         stderr: 'inherit',
@@ -298,23 +317,16 @@ export class FzfSelector {
           FZF_PREVIEW_ROOT: previewRoot
         }
       });
+
+      if (result.exitCode === 0) {
+        return parseFzfOutput(result.stdout);
+      }
+
+      return [];
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`FZF command failed: ${message}`);
     }
-
-    const outputPromise = proc.stdout ? new Response(proc.stdout).text() : Promise.resolve('');
-    const [exitCode, output] = await Promise.all([proc.exited, outputPromise]);
-
-    if (exitCode === 0) {
-      return output
-        .trim()
-        .split('\n')
-        .filter(Boolean)
-        .map(f => resolve(f.trim()));
-    }
-
-    return [];
   }
 
   /**
