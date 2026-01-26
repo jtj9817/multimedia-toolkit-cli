@@ -16,6 +16,14 @@ Supplementary docs consulted:
 - `docs/development.md` (testing section: currently marked "future")
 - `docs/api-reference.md`, `docs/user-guide.md`, `docs/configuration.md` (API/behavior expectations)
 
+## Status Update (Phase 1-2 Applied)
+
+- Output destination dialog implemented at `src/cli/dialogs/output-destination.ts`.
+- Numbered menu template implemented at `src/cli/menus/numbered-menu.ts` and adopted by Settings + Presets menus.
+- Command-driven interactive flows implemented at `src/cli/commands/interactive-commands.ts`, with shared context in `src/cli/commands/context.ts`.
+- Shared helpers added at `src/cli/history.ts`, `src/utils/format.ts`, and `src/utils/process-logging.ts`.
+- `src/index.ts` now builds the interactive menu from the command list and uses shared helpers in CLI mode.
+
 ## High-Impact Findings (What Blocks Testing Today)
 
 1) Import-time side effects make unit tests unsafe
@@ -73,6 +81,10 @@ export async function promptForOutputDestination(
 ): Promise<OutputDestinationResult | null> { /* ... */ }
 ```
 
+Implemented (current):
+- `OutputDestinationDialog` with `promptForSingleOutput(...)` and `promptForOutputDirectory(...)`
+- `OutputDestinationResult` is `{ outputDir, baseName, outputPath? }`
+
 Where it helps immediately:
 - `src/index.ts`:
   - `handleExtractAudio()` (single output file)
@@ -128,6 +140,10 @@ export abstract class NumberedMenu<T> {
 }
 ```
 
+Implemented (current):
+- `src/cli/menus/numbered-menu.ts`
+- `src/cli/menus/settings-menu.ts` and `src/cli/menus/preset-management-menu.ts` adopt it
+
 Trade-offs:
 - Pros: enforces consistent UX; eliminates key-management bugs; enables menu-level unit tests; reduces repetitive menu boilerplate in `src/index.ts`.
 - Cons: more files/classes; slightly slower to add a one-off menu; any future non-numeric hotkeys become a deliberate opt-out.
@@ -175,6 +191,10 @@ export interface Command {
   run(ctx: CommandContext): Promise<void>;
 }
 ```
+
+Implemented (current):
+- `src/cli/commands/command.ts`, `src/cli/commands/context.ts`, `src/cli/commands/interactive-commands.ts`
+- `src/index.ts` interactive menu is now command-driven
 
 Trade-offs:
 - Pros: removes the "god file" pressure on `src/index.ts`; enables per-command tests; encourages reuse between interactive and CLI modes; aligns with OOP while keeping planning logic pure and testable.
@@ -339,17 +359,17 @@ To make the test suite reliable, add injectable seams:
 - `processRunner` abstraction for `Bun.spawn()` calls
 - `promptAdapter` abstraction for CLI input (so menus/dialogs can be tested without readline)
 
-## Suggested Incremental Roadmap
+## Suggested Incremental Roadmap (Updated)
 
 Phase 0: Enable safe tests (no refactor churn yet)
 - Stop import-time side effects (or add env override so tests write to a temp root)
 - Add the first unit tests for pure utilities (waveform, sanitize, time)
 
-Phase 1: Refactor for reuse in the CLI (user-requested UX consistency)
+Phase 1: Refactor for reuse in the CLI (user-requested UX consistency) ✅
 - Implement the output destination + rename dialog helper
 - Implement the generic numbered menu template and adopt it for main/settings/presets menus
 
-Phase 2: Core architecture cleanup for maintainability
+Phase 2: Core architecture cleanup for maintainability ✅
 - Introduce `CommandContext` and convert handlers into command classes incrementally
 - Extract pure "plan builders" from the command implementations
 
@@ -364,4 +384,3 @@ Areas to prioritize:
 - Remove `require(...)` from ESM modules (`src/db/database.ts`, `src/utils/logger.ts`) to reduce bundler and type-check friction.
 - Prefer `Bun.spawn()` over Node's `child_process` for process management.
 - Prefer `@/` path aliases (already configured in `tsconfig.json`) to avoid deep relative imports and simplify refactors.
-
