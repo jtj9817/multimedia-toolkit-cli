@@ -16,30 +16,30 @@ Supplementary docs consulted:
 - `docs/development.md` (testing section: currently marked "future")
 - `docs/api-reference.md`, `docs/user-guide.md`, `docs/configuration.md` (API/behavior expectations)
 
-## Status Update (Phase 1-3 Applied)
+## Status Update (Phase 1-5 Applied)
 
 - Output destination dialog implemented at `src/cli/dialogs/output-destination.ts`.
 - Numbered menu template implemented at `src/cli/menus/numbered-menu.ts` and adopted by Settings + Presets menus.
 - Command-driven interactive flows implemented at `src/cli/commands/interactive-commands.ts`, with shared context in `src/cli/commands/context.ts`.
 - Shared helpers added at `src/cli/history.ts`, `src/utils/format.ts`, and `src/utils/process-logging.ts`.
 - `src/index.ts` now builds the interactive menu from the command list and uses shared helpers in CLI mode.
-- FZF now uses `Bun.spawn()` and no longer depends on Node `child_process`.
+- FZF now uses `runProcess(...)`, and shell building/output parsing are split into testable helpers.
 - Output organization is centralized in `src/utils/path.ts` and shared by config + output organizer.
 - Database migrations + repository layer added under `src/db/`.
+- Import-time singletons removed in favor of `createAppContext()` and explicit factories.
+- New unit tests cover app context wiring, process runner behavior, and FZF helpers.
 
-## High-Impact Findings (What Blocks Testing Today)
+## High-Impact Findings (Current Gaps)
 
-1) Import-time side effects make unit tests unsafe
-- Many modules export instantiated singletons at import time (`config`, `db`, `ffmpeg`, `downloader`, `logger`, `organizer`, `cli`, etc.).
-- `src/config/config.ts` and `src/db/database.ts` write to `~/.multimedia-toolkit` at module load; tests would mutate real user state.
-- Recommendation: introduce dependency injection and/or environment-overridable base paths, and avoid instantiating singletons at import time (details below).
-
-2) Node compatibility layers are used where Bun-native APIs are expected
-- `src/utils/logger.ts` still uses `require(...)` for log file reading; the rest of the refactor removed Node usage in FZF and database setup.
-- A shared Bun-first process runner helper is still missing (see Proposal #6).
-
-3) Documentation drift exists; tests will help prevent regressions
+1) Documentation drift exists; tests will help prevent regressions
 - `docs/architecture.md` and `docs/api-reference.md` describe APIs/paths that do not match the current implementation in several places (e.g., logging location, database class naming, missing referenced docs like `docs/testing.md` / `docs/database-schema.md`).
+
+2) CLI orchestration still uses `process.exit(...)`
+- `src/index.ts` exits directly in several CLI flows, which complicates CLI-mode tests and reuse as a library.
+- This is not a unit-test blocker now that `createAppContext()` exists, but it is still a friction point for CLI integration tests.
+
+3) External-tool-dependent tests need gating
+- FFmpeg/FFprobe/yt-dlp/FZF integration tests should be skipped when binaries are missing; manual `bun run test-fzf.ts` remains required for TTY behavior.
 
 ## Refactor Proposals (With Trade-offs and Testing Impact)
 
@@ -277,7 +277,7 @@ Testing impact:
 - Higher-level module tests can inject a fake runner and assert command args.
 
 Status:
-- Not implemented yet; `Bun.spawn()` usage is still duplicated across media/config modules.
+- Implemented: `src/utils/process-runner.ts` with timeout/truncation, used in ffmpeg/downloader/config/fzf, with unit tests in `src/utils/process-runner.test.ts`.
 
 ### 7) Database Layer Improvements: Type Safety + Transactions
 
@@ -331,7 +331,7 @@ Testing impact:
 - Manual smoke test remains the source of truth for terminal UX.
 
 Status:
-- Partially implemented: FZF now uses `Bun.spawn()`, but the shell command assembly/output parsing is still inline and not split into pure helpers.
+- Implemented: `buildFzfShellCommand(...)` and `parseFzfOutput(...)` live in `src/utils/fzf.ts` with unit tests in `src/utils/fzf.test.ts`. `test-fzf.ts` continues as the manual smoke test.
 
 ## Testing Strategy (bun:test)
 
@@ -394,25 +394,25 @@ Phase 3: Bun alignment and robustness ✅
 - Consolidate output organization (single source of truth) ✅
 - Add database repository layer + migrations ✅
 
-Phase 4: Remove import-time side effects (Proposal #4)
-- Problem context: current singleton exports (`config`, `db`, `logger`, `ffmpeg`, `downloader`, `cli`) still allocate resources and touch `~/.multimedia-toolkit` at import time, which makes `bun:test` unsafe and order-dependent.
-- Introduce `createAppContext()` in `src/app/context.ts` that wires dependencies via explicit factories (config/db/logger/ffmpeg/downloader/organizer/presets/visualizer/clock).
-- Add a base-path configuration layer (env override or constructor param) so tests can point to a temp root and avoid touching user state.
-- Replace `export const x = new X()` with either exported classes or `createX(...)` factories; keep singleton exports only in runtime entrypoints (`src/index.ts`, CLI bootstrap).
-- Update `src/cli/commands/context.ts` to construct from `createAppContext()` instead of shared singletons.
-- Add tests for context wiring using `Database(':memory:')` and temp dirs.
+Phase 4: Remove import-time side effects (Proposal #4) ✅
+- Problem context (resolved): singleton exports (`config`, `db`, `logger`, `ffmpeg`, `downloader`, `cli`) used to allocate resources and touch `~/.multimedia-toolkit` at import time, making `bun:test` unsafe and order-dependent.
+- Implemented `createAppContext()` in `src/app/context.ts` to wire dependencies via explicit factories (config/db/logger/ffmpeg/downloader/organizer/presets/visualizer/clock).
+- Base-path configuration is now injectable (env/constructor options) so tests can point to a temp root and avoid touching user state.
+- Singleton exports were replaced with exported classes or `createX(...)` factories; runtime entrypoints construct the single instance.
+- `src/cli/commands/context.ts` now constructs from `createAppContext()` instead of shared singletons.
+- Added context wiring tests using `Database(':memory:')` and temp dirs.
 
-Phase 5: Process runner + FZF test seams (Proposals #6 + #8)
-- Problem context: `Bun.spawn()` usage is duplicated and inconsistent across media/config modules, and FZF still uses inline shell building/parse logic that is hard to unit test.
-- Add `src/utils/process-runner.ts` with a typed `runProcess(...)` helper that captures stdout/stderr, exitCode, and supports timeouts/truncation; allow streaming for long-running jobs via callbacks.
-- Replace direct `Bun.spawn()` calls in `src/media/ffmpeg.ts`, `src/media/downloader.ts`, `src/config/config.ts`, and `src/utils/fzf.ts` with the shared runner.
-- Split FZF into pure helpers (`buildFzfShellCommand(...)`, `parseFzfOutput(...)`) plus an I/O boundary function; keep `bun run test-fzf.ts` as the manual verification step.
-- Add unit tests for command building, parsing, and process-runner error handling, and update docs to reflect new helper usage.
+Phase 5: Process runner + FZF test seams (Proposals #6 + #8) ✅
+- Problem context (resolved): `Bun.spawn()` usage was duplicated and inconsistent across media/config modules, and FZF used inline shell building/parse logic that was hard to unit test.
+- Added `src/utils/process-runner.ts` with a typed `runProcess(...)` helper that captures stdout/stderr, exitCode, and supports timeouts/truncation; supports streaming via callbacks.
+- Replaced direct `Bun.spawn()` calls in `src/media/ffmpeg.ts`, `src/media/downloader.ts`, `src/config/config.ts`, and `src/utils/fzf.ts` with the shared runner.
+- Split FZF into pure helpers (`buildFzfShellCommand(...)`, `parseFzfOutput(...)`) plus an I/O boundary function; `bun run test-fzf.ts` remains the manual verification step.
+- Added unit tests for command building, parsing, and process-runner error handling, and updated this doc to reflect new helper usage.
 - Helper usage: prefer `runProcess(...)` for new subprocess calls, and import `buildFzfShellCommand(...)`/`parseFzfOutput(...)` for unit tests around the FZF boundary.
 
 ## Notes on Bun/ESM Compatibility
 
 Areas to prioritize:
-- Remove `require(...)` from ESM modules (`src/utils/logger.ts`) to reduce bundler and type-check friction.
-- Prefer `Bun.spawn()` over Node's `child_process` for process management.
+- Keep ESM-only imports (logger no longer uses `require(...)`).
+- Prefer `runProcess(...)`/`Bun.spawn()` over Node's `child_process` for process management.
 - Prefer `@/` path aliases (already configured in `tsconfig.json`) to avoid deep relative imports and simplify refactors.
