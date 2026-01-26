@@ -4,8 +4,11 @@
  * Run with: bun run test-fzf.ts
  */
 
-import { fzfSelector } from './src/utils/fzf';
-import { cli } from './src/cli/interface';
+import { FzfSelector } from './src/utils/fzf';
+import { CLIInterface } from './src/cli/interface';
+
+const fzf = new FzfSelector();
+const cli = new CLIInterface({ fzf });
 
 const c = {
   reset: '\x1b[0m',
@@ -24,7 +27,7 @@ async function testFzfIntegration() {
 
   // Test 1: Check if FZF is available
   console.log(`${c.yellow}Test 1:${c.reset} Checking if FZF is available...`);
-  const isAvailable = await fzfSelector.isFzfAvailable();
+  const isAvailable = await fzf.isFzfAvailable();
   if (isAvailable) {
     console.log(`   ${c.green}✓${c.reset} FZF is installed and available\n`);
   } else {
