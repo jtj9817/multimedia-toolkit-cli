@@ -10,10 +10,9 @@ import type { WaveformVisualizer } from '@/utils/visualizer';
 import type { DatabaseManager } from '@/db/database';
 import type { Logger, OutputOrganizer } from '@/utils/logger';
 import type { ConfigManager } from '@/config/config';
+import type { Clock } from '@/utils/clock';
 
-export interface CommandClock {
-  now(): number;
-}
+export type CommandClock = Clock;
 
 export interface CommandContext {
   cli: CLIInterface;

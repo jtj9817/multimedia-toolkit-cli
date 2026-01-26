@@ -16,17 +16,9 @@ import { existsSync, statSync } from 'fs';
 import { basename } from 'path';
 import { randomUUID } from 'crypto';
 
-import { createCommandContext } from '@/cli/commands/context';
+import { createAppContext, type AppContext } from '@/app/context';
 import { createInteractiveCommands } from '@/cli/commands/interactive-commands';
 import { showHistory } from '@/cli/history';
-import { config } from './config/config';
-import { db } from './db/database';
-import { ffmpeg } from './media/ffmpeg';
-import { downloader } from './media/downloader';
-import { presets } from './utils/presets';
-import { logger, organizer } from './utils/logger';
-import { visualizer } from './utils/visualizer';
-import { cli } from './cli/interface';
 import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoOutputFormat, VideoResolution, VideoQualityMode } from './types';
 import { QUALITY_PRESETS, OUTPUT_FORMATS } from './types';
 import { VIDEO_TRANSCODE_PRESETS } from './media/video-presets';
@@ -34,6 +26,7 @@ import { formatBytes } from '@/utils/format';
 import { logAudioProcess, logVideoProcess } from '@/utils/process-logging';
 
 const VERSION = '1.0.0';
+let appContext: AppContext | null = null;
 
 // ==================== Command Line Argument Parsing ====================
 
@@ -177,7 +170,9 @@ For more information, visit: https://github.com/your-repo/multimedia-toolkit
 
 // ==================== Interactive Mode ====================
 
-async function runInteractiveMode(): Promise<void> {
+async function runInteractiveMode(app: AppContext): Promise<void> {
+  const { cli, logger, config } = app;
+
   cli.clear();
   logger.header('Multimedia Toolkit - Interactive Mode');
 
@@ -192,7 +187,7 @@ async function runInteractiveMode(): Promise<void> {
     cli.warn(`Optional tools missing: ${toolCheck.missing.join(', ')}`);
   }
 
-  const ctx = createCommandContext();
+  const ctx = app;
   const commands = createInteractiveCommands();
 
   // Main menu loop
@@ -224,7 +219,8 @@ async function runInteractiveMode(): Promise<void> {
 
 // ==================== CLI Mode Handlers ====================
 
-async function runCliMode(values: Record<string, unknown>, positionals: string[]): Promise<void> {
+async function runCliMode(app: AppContext, values: Record<string, unknown>, positionals: string[]): Promise<void> {
+  const { cli, logger, config, ffmpeg, downloader, presets, organizer, visualizer, db } = app;
   // Collect input files
   const inputs: string[] = [
     ...(values.input as string[] || []),
@@ -393,7 +389,7 @@ async function runCliMode(values: Record<string, unknown>, positionals: string[]
     const presetResult = presets.get(values.preset as string);
     if (presetResult.success && presetResult.data) {
       for (const input of inputs) {
-        const outputDir = values.output as string || getDefaultOutputDir();
+        const outputDir = values.output as string || config.getOutputDir();
         const result = await ffmpeg.extractMultipleClips(input, presetResult.data.clips, outputDir, {
           format,
           quality,
@@ -419,7 +415,7 @@ async function runCliMode(values: Record<string, unknown>, positionals: string[]
   // Handle chapters extraction
   if (values.chapters) {
     for (const input of inputs) {
-      const outputDir = values.output as string || getDefaultOutputDir();
+      const outputDir = values.output as string || config.getOutputDir();
       const result = await ffmpeg.extractChapters(input, outputDir, { format, quality, dryRun });
 
       if (result.success) {
@@ -434,7 +430,7 @@ async function runCliMode(values: Record<string, unknown>, positionals: string[]
   // Handle silence split
   if (values.silence) {
     for (const input of inputs) {
-      const outputDir = values.output as string || getDefaultOutputDir();
+      const outputDir = values.output as string || config.getOutputDir();
       const result = await ffmpeg.splitBySilence(input, outputDir, { format, quality, dryRun });
 
       if (result.success) {
@@ -511,6 +507,9 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  appContext = createAppContext();
+  const { cli, config, db, logger, presets } = appContext;
+
   // Validate tools
   const toolCheck = await config.validateTools();
   if (!toolCheck.valid) {
@@ -558,9 +557,9 @@ async function main(): Promise<void> {
 
   // Interactive or CLI mode
   if (values.interactive || (positionals.length === 0 && !values.input && !values.url)) {
-    await runInteractiveMode();
+    await runInteractiveMode(appContext);
   } else {
-    await runCliMode(values, positionals);
+    await runCliMode(appContext, values, positionals);
   }
 
   cli.close();
@@ -568,6 +567,10 @@ async function main(): Promise<void> {
 
 // Run the application
 main().catch((error) => {
-  cli.error(`Fatal error: ${error.message}`);
+  if (appContext) {
+    appContext.cli.error(`Fatal error: ${error.message}`);
+  } else {
+    console.error(`Fatal error: ${error.message}`);
+  }
   process.exit(1);
 });

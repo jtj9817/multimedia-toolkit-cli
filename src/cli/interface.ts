@@ -4,11 +4,11 @@
  */
 
 import * as readline from 'readline';
-import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoResolution, VideoOutputFormat, GifWebpPresetKey, ImageOutputFormat, GifWebpConversionOptions } from '../types';
-import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '../types';
-import { VIDEO_TRANSCODE_PRESETS } from '../media/video-presets';
-import { GIF_WEBP_PRESETS, FPS_OPTIONS, WIDTH_OPTIONS, WEBP_QUALITY_OPTIONS, GIF_DITHER_OPTIONS, getDefaultGifWebpOptions } from '../media/gif-webp-presets';
-import { fzfSelector } from '../utils/fzf';
+import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoResolution, VideoOutputFormat, GifWebpPresetKey, ImageOutputFormat, GifWebpConversionOptions } from '@/types';
+import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '@/types';
+import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
+import { GIF_WEBP_PRESETS, FPS_OPTIONS, WIDTH_OPTIONS, WEBP_QUALITY_OPTIONS, GIF_DITHER_OPTIONS, getDefaultGifWebpOptions } from '@/media/gif-webp-presets';
+import { FzfSelector } from '@/utils/fzf';
 
 // ANSI escape regex for stripping color codes
 // eslint-disable-next-line no-control-regex
@@ -30,8 +30,11 @@ const c = {
 
 export class CLIInterface {
   private rl: readline.Interface | null = null;
+  private fzf: FzfSelector;
 
-  constructor() {}
+  constructor(options: { fzf?: FzfSelector } = {}) {
+    this.fzf = options.fzf ?? new FzfSelector();
+  }
 
   /**
    * Initialize readline interface
@@ -612,7 +615,7 @@ export class CLIInterface {
     prompt?: string;
     allowBack?: boolean;
   } = {}): Promise<string> {
-    const fzfAvailable = await fzfSelector.isFzfAvailable();
+    const fzfAvailable = await this.fzf.isFzfAvailable();
     const allowBack = options.allowBack ?? true;
 
     while (true) {
@@ -623,7 +626,7 @@ export class CLIInterface {
         console.log(`${c.cyan}╰───────────────────────────────────────────────────────╯${c.reset}\n`);
 
         this.suspendReadline();
-        const result = await fzfSelector.selectFile({
+        const result = await this.fzf.selectFile({
           directory: options.directory,
           extensions: options.extensions,
           preview: true,
@@ -692,7 +695,7 @@ export class CLIInterface {
     prompt?: string;
     allowBack?: boolean;
   } = {}): Promise<string[]> {
-    const fzfAvailable = await fzfSelector.isFzfAvailable();
+    const fzfAvailable = await this.fzf.isFzfAvailable();
     const allowBack = options.allowBack ?? true;
 
     while (true) {
@@ -704,7 +707,7 @@ export class CLIInterface {
         console.log(`${c.cyan}╰───────────────────────────────────────────────────────╯${c.reset}\n`);
 
         this.suspendReadline();
-        const result = await fzfSelector.selectFiles({
+        const result = await this.fzf.selectFiles({
           directory: options.directory,
           extensions: options.extensions,
           multi: true,
@@ -798,5 +801,3 @@ export class CLIInterface {
     });
   }
 }
-
-export const cli = new CLIInterface();

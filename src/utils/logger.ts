@@ -3,12 +3,13 @@
  * Handles logging, output file organization, and export functionality
  */
 
-import { config } from '../config/config';
-import { db } from '../db/database';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
 import { buildTimestampedName, ensureDir, resolveOrganizedSubDir } from '@/utils/path';
-import type { ProcessRecord, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
+import type { ProcessRecord, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '@/types';
+import type { ConfigManager } from '@/config/config';
+import type { DatabaseManager } from '@/db/database';
+import type { Clock } from '@/utils/clock';
 
 // ANSI color codes for terminal output
 const colors = {
@@ -28,12 +29,24 @@ const colors = {
   bgBlue: '\x1b[44m',
 };
 
+export interface LoggerOptions {
+  config: ConfigManager;
+  db: DatabaseManager;
+  clock?: Clock;
+}
+
 export class Logger {
+  private config: ConfigManager;
+  private db: DatabaseManager;
+  private clock: Clock;
   private logDir: string;
   private currentLogFile: string;
 
-  constructor() {
-    this.logDir = join(config.get('defaultOutputDir'), 'logs');
+  constructor(options: LoggerOptions) {
+    this.config = options.config;
+    this.db = options.db;
+    this.clock = options.clock ?? { now: () => Date.now() };
+    this.logDir = join(this.config.get('defaultOutputDir'), 'logs');
     this.ensureLogDir();
     this.currentLogFile = this.getLogFileName();
   }
@@ -45,13 +58,13 @@ export class Logger {
   }
 
   private getLogFileName(): string {
-    const format = config.get('logFormat');
-    const date = new Date().toISOString().split('T')[0];
+    const format = this.config.get('logFormat');
+    const date = new Date(this.clock.now()).toISOString().split('T')[0];
     return join(this.logDir, `audio-toolkit-${date}.${format}`);
   }
 
   private timestamp(): string {
-    return new Date().toISOString();
+    return new Date(this.clock.now()).toISOString();
   }
 
   // ==================== Console Output ====================
@@ -106,9 +119,9 @@ export class Logger {
   // ==================== File Logging ====================
 
   logToFile(record: Partial<ProcessRecord>): void {
-    if (!config.get('logOutputs')) return;
+    if (!this.config.get('logOutputs')) return;
 
-    const format = config.get('logFormat');
+    const format = this.config.get('logFormat');
 
     if (format === 'json') {
       this.logToJsonFile(record);
@@ -124,7 +137,7 @@ export class Logger {
     let existingData: Partial<ProcessRecord>[] = [];
     if (existsSync(logFile)) {
       try {
-        const content = require('fs').readFileSync(logFile, 'utf-8');
+        const content = readFileSync(logFile, 'utf-8');
         existingData = JSON.parse(content);
       } catch {
         existingData = [];
@@ -176,10 +189,10 @@ export class Logger {
   // ==================== Export Functions ====================
 
   exportProcessHistory(format: 'json' | 'csv', outputPath?: string): string {
-    const processes = db.processes.getRecentProcesses(10000);
+    const processes = this.db.processes.getRecentProcesses(10000);
     const finalPath = outputPath || join(
       this.logDir,
-      `export-${Date.now()}.${format}`
+      `export-${this.clock.now()}.${format}`
     );
 
     if (format === 'json') {
@@ -224,8 +237,8 @@ export class Logger {
     todayLogs: number;
     logDir: string;
   } {
-    const processes = db.processes.getRecentProcesses(10000);
-    const today = new Date().toISOString().split('T')[0];
+    const processes = this.db.processes.getRecentProcesses(10000);
+    const today = new Date(this.clock.now()).toISOString().split('T')[0];
     const todayLogs = processes.filter(p =>
       p.createdAt?.startsWith(today)
     ).length;
@@ -238,7 +251,20 @@ export class Logger {
   }
 }
 
+export interface OutputOrganizerOptions {
+  config: ConfigManager;
+  clock?: Clock;
+}
+
 export class OutputOrganizer {
+  private config: ConfigManager;
+  private clock: Clock;
+
+  constructor(options: OutputOrganizerOptions) {
+    this.config = options.config;
+    this.clock = options.clock ?? { now: () => Date.now() };
+  }
+
   /**
    * Generate organized output path based on config settings
    */
@@ -255,28 +281,29 @@ export class OutputOrganizer {
 
     if (customDir) {
       ensureDir(customDir);
-      return join(customDir, buildTimestampedName(baseName, format, { tags }));
+      return join(customDir, buildTimestampedName(baseName, format, { tags, now: this.clock.now() }));
     }
 
-    const baseDir = config.get('defaultOutputDir');
+    const baseDir = this.config.get('defaultOutputDir');
     const subDir = resolveOrganizedSubDir({
-      autoOrganize: config.get('autoOrganize'),
-      organizeBy: config.get('organizeBy'),
+      autoOrganize: this.config.get('autoOrganize'),
+      organizeBy: this.config.get('organizeBy'),
       format,
-      source
+      source,
+      now: new Date(this.clock.now())
     });
 
     const outputDir = join(baseDir, subDir);
     ensureDir(outputDir);
 
-    return join(outputDir, buildTimestampedName(baseName, format, { tags }));
+    return join(outputDir, buildTimestampedName(baseName, format, { tags, now: this.clock.now() }));
   }
 
   /**
    * Get the output directory structure
    */
   getDirectoryTree(depth: number = 2): string {
-    const baseDir = config.get('defaultOutputDir');
+    const baseDir = this.config.get('defaultOutputDir');
 
     if (!existsSync(baseDir)) {
       return `Output directory not found: ${baseDir}`;
@@ -315,11 +342,11 @@ export class OutputOrganizer {
    * Clean up old temporary files
    */
   async cleanupTemp(olderThanDays: number = 7): Promise<number> {
-    const tempDir = config.get('tempDir');
+    const tempDir = this.config.get('tempDir');
 
     if (!existsSync(tempDir)) return 0;
 
-    const now = Date.now();
+    const now = this.clock.now();
     const maxAge = olderThanDays * 24 * 60 * 60 * 1000;
     let cleaned = 0;
 
@@ -338,6 +365,3 @@ export class OutputOrganizer {
     return cleaned;
   }
 }
-
-export const logger = new Logger();
-export const organizer = new OutputOrganizer();

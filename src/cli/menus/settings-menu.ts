@@ -2,16 +2,18 @@
  * Settings menu using the standard numbered layout.
  */
 
-import { config } from '@/config/config';
+import type { ConfigManager } from '@/config/config';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
 import type { CLIInterface } from '@/cli/interface';
 import { NumberedMenu, type NumberedChoice } from '@/cli/menus/numbered-menu';
 
 export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
   title = 'Settings';
+  private config: ConfigManager;
 
-  constructor(cli: CLIInterface) {
+  constructor(cli: CLIInterface, config: ConfigManager) {
     super(cli);
+    this.config = config;
   }
 
   exitLabel(): string {
@@ -23,8 +25,8 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
       {
         label: 'Change output directory',
         value: async () => {
-          const dir = await this.cli.prompt('New output directory', config.get('defaultOutputDir'));
-          config.set('defaultOutputDir', dir);
+          const dir = await this.cli.prompt('New output directory', this.config.get('defaultOutputDir'));
+          this.config.set('defaultOutputDir', dir);
           this.cli.success('Updated');
         }
       },
@@ -32,7 +34,7 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
         label: 'Change default quality',
         value: async () => {
           const quality = await this.cli.selectQuality();
-          config.set('defaultQuality', quality);
+          this.config.set('defaultQuality', quality);
           this.cli.success('Updated');
         }
       },
@@ -40,48 +42,48 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
         label: 'Change default format',
         value: async () => {
           const format = await this.cli.selectFormat();
-          config.set('defaultFormat', format);
+          this.config.set('defaultFormat', format);
           this.cli.success('Updated');
         }
       },
       {
         label: 'Change default video preset',
         value: async () => {
-          const preset = await this.cli.selectVideoPreset(config.get('defaultVideoPreset'));
-          config.set('defaultVideoPreset', preset);
+          const preset = await this.cli.selectVideoPreset(this.config.get('defaultVideoPreset'));
+          this.config.set('defaultVideoPreset', preset);
           const presetData = VIDEO_TRANSCODE_PRESETS[preset];
-          config.set('defaultVideoFormat', presetData.container);
+          this.config.set('defaultVideoFormat', presetData.container);
           this.cli.success('Updated');
         }
       },
       {
         label: 'Change default video format',
         value: async () => {
-          const format = await this.cli.selectVideoFormat(config.get('defaultVideoFormat'));
-          config.set('defaultVideoFormat', format);
+          const format = await this.cli.selectVideoFormat(this.config.get('defaultVideoFormat'));
+          this.config.set('defaultVideoFormat', format);
           this.cli.success('Updated');
         }
       },
       {
         label: 'Change default video resolution',
         value: async () => {
-          const resolution = await this.cli.selectVideoResolution(config.get('defaultVideoResolution'));
-          config.set('defaultVideoResolution', resolution);
+          const resolution = await this.cli.selectVideoResolution(this.config.get('defaultVideoResolution'));
+          this.config.set('defaultVideoResolution', resolution);
           this.cli.success('Updated');
         }
       },
       {
         label: 'Toggle auto-organize',
         value: async () => {
-          config.set('autoOrganize', !config.get('autoOrganize'));
-          this.cli.success(`Auto-organize: ${config.get('autoOrganize') ? 'ON' : 'OFF'}`);
+          this.config.set('autoOrganize', !this.config.get('autoOrganize'));
+          this.cli.success(`Auto-organize: ${this.config.get('autoOrganize') ? 'ON' : 'OFF'}`);
         }
       },
       {
         label: 'Reset to defaults',
         value: async () => {
           if (await this.cli.confirm('Reset all settings?', false)) {
-            config.reset();
+            this.config.reset();
             this.cli.success('Settings reset');
           }
         }

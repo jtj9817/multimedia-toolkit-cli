@@ -3,7 +3,7 @@
  */
 
 import { parse } from 'path';
-import { config } from '@/config/config';
+import type { ConfigManager } from '@/config/config';
 import type { CLIInterface } from '@/cli/interface';
 import type { OutputOrganizer } from '@/utils/logger';
 import type { ImageOutputFormat, OutputFormat, VideoOutputFormat } from '@/types';
@@ -34,7 +34,8 @@ export interface DirectoryOutputDialogOptions {
 export class OutputDestinationDialog {
   constructor(
     private cli: CLIInterface,
-    private organizer: OutputOrganizer
+    private organizer: OutputOrganizer,
+    private config: ConfigManager
   ) {}
 
   async promptForSingleOutput(options: SingleOutputDialogOptions): Promise<OutputDestinationResult> {
@@ -66,7 +67,7 @@ export class OutputDestinationDialog {
       }
     }
 
-    const outputDirDefault = options.defaultDir || config.get('defaultOutputDir');
+    const outputDirDefault = options.defaultDir || this.config.get('defaultOutputDir');
     const outputDir = await this.cli.prompt('Output directory', outputDirDefault);
     const baseName = allowRename
       ? await this.promptBaseName(options.defaultBaseName, 'Rename output file?')
@@ -81,7 +82,7 @@ export class OutputDestinationDialog {
   }
 
   async promptForOutputDirectory(options: DirectoryOutputDialogOptions): Promise<OutputDestinationResult> {
-    const outputDirDefault = options.defaultDir || config.get('defaultOutputDir');
+    const outputDirDefault = options.defaultDir || this.config.get('defaultOutputDir');
     const outputDir = await this.cli.prompt('Output directory', outputDirDefault);
     const allowRename = options.allowRename ?? true;
     const baseName = allowRename

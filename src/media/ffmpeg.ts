@@ -3,7 +3,7 @@
  * Handles all audio extraction, conversion, and manipulation operations
  */
 
-import { config } from '../config/config';
+import type { ConfigManager } from '@/config/config';
 import type {
   MediaMetadata,
   Chapter,
@@ -18,9 +18,9 @@ import type {
   VideoTranscodePreset,
   VideoScaleSettings,
   GifWebpConversionOptions
-} from '../types';
-import { QUALITY_PRESETS } from '../types';
-import { VIDEO_TRANSCODE_PRESETS } from './video-presets';
+} from '@/types';
+import { QUALITY_PRESETS } from '@/types';
+import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
 
 const WEBM_OPUS_ARGS = ['-vbr', 'on', '-compression_level', '10', '-application', 'audio'];
 const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
@@ -31,10 +31,12 @@ const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = 
 export class FFmpegWrapper {
   private ffmpegPath: string;
   private ffprobePath: string;
+  private config: ConfigManager;
 
-  constructor() {
-    this.ffmpegPath = config.get('ffmpegPath') || 'ffmpeg';
-    this.ffprobePath = config.get('ffprobePath') || 'ffprobe';
+  constructor(options: { config: ConfigManager }) {
+    this.config = options.config;
+    this.ffmpegPath = this.config.get('ffmpegPath') || 'ffmpeg';
+    this.ffprobePath = this.config.get('ffprobePath') || 'ffprobe';
   }
 
   /**
@@ -117,7 +119,7 @@ export class FFmpegWrapper {
       format = 'mp3',
       quality = 'music_medium',
       clip,
-      preserveMetadata = config.get('preserveMetadata'),
+      preserveMetadata = this.config.get('preserveMetadata'),
       dryRun = false
     } = options;
 
@@ -230,7 +232,7 @@ export class FFmpegWrapper {
     options: VideoTranscodeOptions = {}
   ): Promise<OperationResult<{ command: string; outputPath: string }>> {
     const preset = this.resolveVideoPreset(options);
-    const preserveMetadata = options.preserveMetadata ?? config.get('preserveMetadata');
+    const preserveMetadata = options.preserveMetadata ?? this.config.get('preserveMetadata');
 
     const videoSettings = {
       ...preset.video,
@@ -602,7 +604,7 @@ export class FFmpegWrapper {
 
     // Create concat file content
     const concatContent = inputPaths.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
-    const concatFile = `${config.get('tempDir')}/concat_${Date.now()}.txt`;
+    const concatFile = `${this.config.get('tempDir')}/concat_${Date.now()}.txt`;
 
     try {
       await Bun.write(concatFile, concatContent);
@@ -801,7 +803,7 @@ export class FFmpegWrapper {
           duration: previewDuration
         };
 
-        const tempDir = config.get('tempDir');
+        const tempDir = this.config.get('tempDir');
         const startFile = `${tempDir}/preview_start_${Date.now()}.mp3`;
         const endFile = `${tempDir}/preview_end_${Date.now()}.mp3`;
 
@@ -902,7 +904,7 @@ export class FFmpegWrapper {
       dryRun = false
     } = options;
 
-    const tempDir = config.get('tempDir');
+    const tempDir = this.config.get('tempDir');
     const paletteFile = `${tempDir}/palette_${Date.now()}.png`;
 
     try {
@@ -1201,5 +1203,3 @@ export class FFmpegWrapper {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 }
-
-export const ffmpeg = new FFmpegWrapper();

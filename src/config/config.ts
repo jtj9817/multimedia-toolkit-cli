@@ -4,88 +4,91 @@
  */
 
 import { join } from 'path';
-import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { db } from '../db/database';
 import { buildTimestampedName, resolveOrganizedSubDir } from '@/utils/path';
-import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
+import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '@/types';
+import type { AppPaths } from '@/app/paths';
+import type { DatabaseManager } from '@/db/database';
 
-const CONFIG_DIR = join(homedir(), '.multimedia-toolkit');
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
+export interface ConfigManagerOptions {
+  paths: AppPaths;
+  db?: DatabaseManager;
+}
 
-// Default configuration
-const DEFAULT_CONFIG: AppConfig = {
-  defaultOutputDir: join(homedir(), 'Music', 'AudioExtracted'),
-  defaultQuality: 'music_medium',
-  defaultFormat: 'mp3',
-  defaultVideoFormat: 'webm',
-  defaultVideoPreset: 'any-to-webm',
-  defaultVideoResolution: '1080p',
-  // GIF/WebP defaults
-  defaultGifWebpPreset: 'webp-discord',
-  defaultGifFps: 30,
-  defaultWebpQuality: 80,
-  autoOrganize: true,
-  organizeBy: 'date',
-  preserveMetadata: true,
-  logOutputs: true,
-  logFormat: 'json',
-  ytdlpPath: 'yt-dlp',
-  ffmpegPath: 'ffmpeg',
-  ffprobePath: 'ffprobe',
-  maxConcurrentJobs: 2,
-  tempDir: join(CONFIG_DIR, 'temp')
-};
+export function buildDefaultConfig(paths: AppPaths): AppConfig {
+  return {
+    defaultOutputDir: paths.defaultOutputDir,
+    defaultQuality: 'music_medium',
+    defaultFormat: 'mp3',
+    defaultVideoFormat: 'webm',
+    defaultVideoPreset: 'any-to-webm',
+    defaultVideoResolution: '1080p',
+    // GIF/WebP defaults
+    defaultGifWebpPreset: 'webp-discord',
+    defaultGifFps: 30,
+    defaultWebpQuality: 80,
+    autoOrganize: true,
+    organizeBy: 'date',
+    preserveMetadata: true,
+    logOutputs: true,
+    logFormat: 'json',
+    ytdlpPath: 'yt-dlp',
+    ffmpegPath: 'ffmpeg',
+    ffprobePath: 'ffprobe',
+    maxConcurrentJobs: 2,
+    tempDir: paths.tempDir
+  };
+}
 
 class ConfigManager {
   private config: AppConfig;
-  private static instance: ConfigManager | null = null;
+  private paths: AppPaths;
+  private db?: DatabaseManager;
+  private defaultConfig: AppConfig;
 
-  private constructor() {
+  constructor(options: ConfigManagerOptions) {
+    this.paths = options.paths;
+    this.db = options.db;
+    this.defaultConfig = buildDefaultConfig(this.paths);
     this.config = this.loadConfig();
-  }
-
-  static getInstance(): ConfigManager {
-    if (!ConfigManager.instance) {
-      ConfigManager.instance = new ConfigManager();
-    }
-    return ConfigManager.instance;
   }
 
   private loadConfig(): AppConfig {
     // Ensure config directory exists
-    if (!existsSync(CONFIG_DIR)) {
-      mkdirSync(CONFIG_DIR, { recursive: true });
+    if (!existsSync(this.paths.configDir)) {
+      mkdirSync(this.paths.configDir, { recursive: true });
     }
 
     // Ensure temp directory exists
-    if (!existsSync(DEFAULT_CONFIG.tempDir)) {
-      mkdirSync(DEFAULT_CONFIG.tempDir, { recursive: true });
+    if (!existsSync(this.defaultConfig.tempDir)) {
+      mkdirSync(this.defaultConfig.tempDir, { recursive: true });
     }
 
     // Try to load from config file
-    if (existsSync(CONFIG_FILE)) {
+    if (existsSync(this.paths.configFile)) {
       try {
-        const fileConfig = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
-        return { ...DEFAULT_CONFIG, ...fileConfig };
+        const fileConfig = JSON.parse(readFileSync(this.paths.configFile, 'utf-8'));
+        return { ...this.defaultConfig, ...fileConfig };
       } catch {
         console.warn('Warning: Could not parse config file, using defaults');
       }
     }
 
     // Try to load from database
-    const dbConfig = db.config.getAllConfig();
-    if (Object.keys(dbConfig).length > 0) {
-      return this.parseDbConfig(dbConfig);
+    if (this.db) {
+      const dbConfig = this.db.config.getAllConfig();
+      if (Object.keys(dbConfig).length > 0) {
+        return this.parseDbConfig(dbConfig);
+      }
     }
 
     // Save defaults and return
-    this.saveConfig(DEFAULT_CONFIG);
-    return DEFAULT_CONFIG;
+    this.saveConfig(this.defaultConfig);
+    return this.defaultConfig;
   }
 
   private parseDbConfig(dbConfig: Record<string, string>): AppConfig {
-    const config = { ...DEFAULT_CONFIG };
+    const config = { ...this.defaultConfig };
 
     for (const [key, value] of Object.entries(dbConfig)) {
       const typedKey = key as keyof AppConfig;
@@ -112,20 +115,22 @@ class ConfigManager {
     const configToSave = config || this.config;
 
     // Ensure directories exist
-    if (!existsSync(CONFIG_DIR)) {
-      mkdirSync(CONFIG_DIR, { recursive: true });
+    if (!existsSync(this.paths.configDir)) {
+      mkdirSync(this.paths.configDir, { recursive: true });
     }
 
     // Save to file
     try {
-      writeFileSync(CONFIG_FILE, JSON.stringify(configToSave, null, 2));
+      writeFileSync(this.paths.configFile, JSON.stringify(configToSave, null, 2));
     } catch (error) {
       console.error('Error saving config file:', error);
     }
 
     // Save to database
-    for (const [key, value] of Object.entries(configToSave)) {
-      db.config.setConfig(key, String(value));
+    if (this.db) {
+      for (const [key, value] of Object.entries(configToSave)) {
+        this.db.config.setConfig(key, String(value));
+      }
     }
 
     this.config = configToSave;
@@ -150,7 +155,7 @@ class ConfigManager {
   }
 
   reset(): void {
-    this.config = { ...DEFAULT_CONFIG };
+    this.config = { ...this.defaultConfig };
     this.saveConfig();
   }
 
@@ -257,5 +262,8 @@ class ConfigManager {
   }
 }
 
-export const config = ConfigManager.getInstance();
-export { DEFAULT_CONFIG };
+export function createConfigManager(options: ConfigManagerOptions): ConfigManager {
+  return new ConfigManager(options);
+}
+
+export { ConfigManager };

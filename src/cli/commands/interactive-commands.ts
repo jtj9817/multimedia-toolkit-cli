@@ -70,7 +70,7 @@ async function runExtractAudio(ctx: CommandContext): Promise<void> {
   const quality = await ctx.cli.selectQuality();
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
-  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForSingleOutput({
     format,
     defaultBaseName: baseName,
@@ -193,7 +193,7 @@ async function runClipAudio(ctx: CommandContext): Promise<void> {
   const quality = await ctx.cli.selectQuality();
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
-  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForOutputDirectory({
     defaultBaseName: baseName,
     defaultDir: ctx.config.get('defaultOutputDir'),
@@ -276,7 +276,7 @@ async function runUrlDownload(ctx: CommandContext): Promise<void> {
   if (await ctx.cli.confirm('Clip the downloaded audio?', false)) {
     const clips = await ctx.cli.promptMultipleClips();
     const baseName = basename(downloadedPath).replace(/\.[^.]+$/, '');
-    const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+    const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
     const outputChoice = await outputDialog.promptForOutputDirectory({
       defaultBaseName: baseName,
       defaultDir: ctx.config.get('defaultOutputDir'),
@@ -355,7 +355,7 @@ async function runBatchProcess(ctx: CommandContext): Promise<void> {
 
   const format = await ctx.cli.selectFormat();
   const quality = await ctx.cli.selectQuality();
-  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForOutputDirectory({
     defaultBaseName: 'output',
     defaultDir: ctx.config.get('defaultOutputDir'),
@@ -431,7 +431,7 @@ async function runChapterExtraction(ctx: CommandContext): Promise<void> {
 
   const format = await ctx.cli.selectFormat();
   const quality = await ctx.cli.selectQuality();
-  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForOutputDirectory({
     defaultBaseName: basename(inputPath).replace(/\.[^.]+$/, ''),
     defaultDir: ctx.config.get('defaultOutputDir'),
@@ -470,7 +470,7 @@ async function runSilenceSplit(ctx: CommandContext): Promise<void> {
 
   const format = await ctx.cli.selectFormat();
   const quality = await ctx.cli.selectQuality();
-  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForOutputDirectory({
     defaultBaseName: basename(inputPath).replace(/\.[^.]+$/, ''),
     defaultDir: ctx.config.get('defaultOutputDir'),
@@ -526,7 +526,7 @@ async function runVideoTranscode(ctx: CommandContext): Promise<void> {
   const preset = VIDEO_TRANSCODE_PRESETS[presetKey];
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
-  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForSingleOutput({
     format: preset.container,
     defaultBaseName: baseName,
@@ -602,7 +602,7 @@ async function runGifWebpConvert(ctx: CommandContext): Promise<void> {
   }
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
-  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer);
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForSingleOutput({
     format,
     defaultBaseName: baseName,
@@ -676,7 +676,7 @@ async function runGifWebpConvert(ctx: CommandContext): Promise<void> {
 }
 
 async function runPresetManagement(ctx: CommandContext): Promise<void> {
-  const menu = new PresetManagementMenu(ctx.cli);
+  const menu = new PresetManagementMenu(ctx.cli, ctx.config, ctx.presets);
   const action = await menu.run();
   if (action) {
     await action();
@@ -689,7 +689,7 @@ async function runViewHistory(ctx: CommandContext): Promise<void> {
 
 async function runSettings(ctx: CommandContext): Promise<void> {
   ctx.config.printConfig();
-  const menu = new SettingsMenu(ctx.cli);
+  const menu = new SettingsMenu(ctx.cli, ctx.config);
   const action = await menu.run();
   if (action) {
     await action();

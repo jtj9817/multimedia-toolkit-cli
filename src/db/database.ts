@@ -4,8 +4,6 @@
  */
 
 import { Database } from 'bun:sqlite';
-import { join } from 'path';
-import { homedir } from 'os';
 import { existsSync, mkdirSync } from 'fs';
 import { applyMigrations } from '@/db/migrations';
 import { ConfigRepository } from '@/db/repositories/config';
@@ -14,12 +12,15 @@ import { PresetRepository } from '@/db/repositories/presets';
 import { ProcessHistoryRepository } from '@/db/repositories/process-history';
 import { TagsRepository } from '@/db/repositories/tags';
 
-const DATA_DIR = join(homedir(), '.multimedia-toolkit');
-const DB_PATH = join(DATA_DIR, 'toolkit.db');
+export interface DatabaseManagerOptions {
+  dbPath: string;
+  dataDir: string;
+}
 
 export class DatabaseManager {
   private db: Database;
-  private static instance: DatabaseManager | null = null;
+  readonly dbPath: string;
+  readonly dataDir: string;
 
   readonly processes: ProcessHistoryRepository;
   readonly presets: PresetRepository;
@@ -27,12 +28,15 @@ export class DatabaseManager {
   readonly tags: TagsRepository;
   readonly interrupted: InterruptedOperationsRepository;
 
-  private constructor() {
-    if (!existsSync(DATA_DIR)) {
-      mkdirSync(DATA_DIR, { recursive: true });
+  constructor(options: DatabaseManagerOptions) {
+    this.dbPath = options.dbPath;
+    this.dataDir = options.dataDir;
+
+    if (this.dataDir && !existsSync(this.dataDir)) {
+      mkdirSync(this.dataDir, { recursive: true });
     }
 
-    this.db = new Database(DB_PATH);
+    this.db = new Database(this.dbPath);
     this.db.run('PRAGMA journal_mode = WAL');
     this.db.run('PRAGMA foreign_keys = ON');
     applyMigrations(this.db);
@@ -42,13 +46,6 @@ export class DatabaseManager {
     this.config = new ConfigRepository(this.db);
     this.tags = new TagsRepository(this.db);
     this.interrupted = new InterruptedOperationsRepository(this.db);
-  }
-
-  static getInstance(): DatabaseManager {
-    if (!DatabaseManager.instance) {
-      DatabaseManager.instance = new DatabaseManager();
-    }
-    return DatabaseManager.instance;
   }
 
   exportToJson(): string {
@@ -64,8 +61,9 @@ export class DatabaseManager {
 
   close(): void {
     this.db.close();
-    DatabaseManager.instance = null;
   }
 }
 
-export const db = DatabaseManager.getInstance();
+export function createDatabaseManager(options: DatabaseManagerOptions): DatabaseManager {
+  return new DatabaseManager(options);
+}

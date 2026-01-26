@@ -3,16 +3,20 @@
  */
 
 import { join } from 'path';
-import { config } from '@/config/config';
+import type { ConfigManager } from '@/config/config';
 import type { CLIInterface } from '@/cli/interface';
 import { NumberedMenu, type NumberedChoice } from '@/cli/menus/numbered-menu';
-import { presets } from '@/utils/presets';
+import type { PresetManager } from '@/utils/presets';
 
 export class PresetManagementMenu extends NumberedMenu<() => Promise<void>> {
   title = 'Preset Management';
+  private config: ConfigManager;
+  private presets: PresetManager;
 
-  constructor(cli: CLIInterface) {
+  constructor(cli: CLIInterface, config: ConfigManager, presets: PresetManager) {
     super(cli);
+    this.config = config;
+    this.presets = presets;
   }
 
   exitLabel(): string {
@@ -24,16 +28,16 @@ export class PresetManagementMenu extends NumberedMenu<() => Promise<void>> {
       {
         label: 'List Presets',
         value: async () => {
-          console.log('\n' + presets.listPresets() + '\n');
+          console.log('\n' + this.presets.listPresets() + '\n');
         }
       },
       {
         label: 'View Preset Details',
         value: async () => {
           const name = await this.cli.prompt('Preset name');
-          const result = presets.get(name);
+          const result = this.presets.get(name);
           if (result.success && result.data) {
-            console.log('\n' + presets.formatPreset(result.data) + '\n');
+            console.log('\n' + this.presets.formatPreset(result.data) + '\n');
           } else {
             this.cli.error(result.error || 'Preset not found');
           }
@@ -45,7 +49,7 @@ export class PresetManagementMenu extends NumberedMenu<() => Promise<void>> {
           const name = await this.cli.prompt('Preset name');
           const sourcePattern = await this.cli.prompt('Source file pattern (regex, optional)');
           const clips = await this.cli.promptMultipleClips();
-          const result = presets.createFromClips(name, clips, sourcePattern || undefined);
+          const result = this.presets.createFromClips(name, clips, sourcePattern || undefined);
           if (result.success) {
             this.cli.success(`Preset "${name}" created`);
           } else {
@@ -58,7 +62,7 @@ export class PresetManagementMenu extends NumberedMenu<() => Promise<void>> {
         value: async () => {
           const name = await this.cli.prompt('Preset name to delete');
           if (await this.cli.confirm(`Delete preset "${name}"?`, false)) {
-            const result = presets.delete(name);
+            const result = this.presets.delete(name);
             if (result.success) {
               this.cli.success(`Preset "${name}" deleted`);
             } else {
@@ -70,8 +74,8 @@ export class PresetManagementMenu extends NumberedMenu<() => Promise<void>> {
       {
         label: 'Export Presets',
         value: async () => {
-          const json = presets.exportToJson();
-          const outputPath = join(config.getOutputDir(), `presets_export_${Date.now()}.json`);
+          const json = this.presets.exportToJson();
+          const outputPath = join(this.config.getOutputDir(), `presets_export_${Date.now()}.json`);
           await Bun.write(outputPath, json);
           this.cli.success(`Exported to: ${outputPath}`);
         }

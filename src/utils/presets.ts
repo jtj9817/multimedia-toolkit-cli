@@ -3,10 +3,16 @@
  * Handles saving/loading time presets for frequently clipped segments
  */
 
-import { db } from '../db/database';
-import type { ClipPreset, TimeClip, OperationResult } from '../types';
+import type { DatabaseManager } from '@/db/database';
+import type { ClipPreset, TimeClip, OperationResult } from '@/types';
 
 export class PresetManager {
+  private db: DatabaseManager;
+
+  constructor(options: { db: DatabaseManager }) {
+    this.db = options.db;
+  }
+
   /**
    * Save a new preset or update existing one
    */
@@ -30,7 +36,7 @@ export class PresetManager {
         }
       }
 
-      const id = db.presets.savePreset(preset);
+      const id = this.db.presets.savePreset(preset);
       return { success: true, data: id };
     } catch (error) {
       return { success: false, error: `Failed to save preset: ${error}` };
@@ -42,7 +48,7 @@ export class PresetManager {
    */
   get(name: string): OperationResult<ClipPreset> {
     try {
-      const preset = db.presets.getPreset(name);
+      const preset = this.db.presets.getPreset(name);
       if (!preset) {
         return { success: false, error: `Preset not found: ${name}` };
       }
@@ -57,7 +63,7 @@ export class PresetManager {
    */
   getAll(): OperationResult<ClipPreset[]> {
     try {
-      const presets = db.presets.getAllPresets();
+      const presets = this.db.presets.getAllPresets();
       return { success: true, data: presets };
     } catch (error) {
       return { success: false, error: `Failed to get presets: ${error}` };
@@ -69,7 +75,7 @@ export class PresetManager {
    */
   delete(name: string): OperationResult<boolean> {
     try {
-      const deleted = db.presets.deletePreset(name);
+      const deleted = this.db.presets.deletePreset(name);
       if (!deleted) {
         return { success: false, error: `Preset not found: ${name}` };
       }
@@ -83,7 +89,7 @@ export class PresetManager {
    * Find presets matching a source file pattern
    */
   findMatchingPresets(sourcePath: string): ClipPreset[] {
-    const allPresets = db.presets.getAllPresets();
+    const allPresets = this.db.presets.getAllPresets();
 
     return allPresets.filter(preset => {
       if (!preset.sourcePattern) return false;
@@ -111,7 +117,7 @@ export class PresetManager {
    * Duplicate a preset with a new name
    */
   duplicate(originalName: string, newName: string): OperationResult<number> {
-    const original = db.presets.getPreset(originalName);
+    const original = this.db.presets.getPreset(originalName);
     if (!original) {
       return { success: false, error: `Preset not found: ${originalName}` };
     }
@@ -127,7 +133,7 @@ export class PresetManager {
    * Add a clip to an existing preset
    */
   addClip(presetName: string, clip: TimeClip): OperationResult<number> {
-    const preset = db.presets.getPreset(presetName);
+    const preset = this.db.presets.getPreset(presetName);
     if (!preset) {
       return { success: false, error: `Preset not found: ${presetName}` };
     }
@@ -140,7 +146,7 @@ export class PresetManager {
    * Remove a clip from a preset by index
    */
   removeClip(presetName: string, clipIndex: number): OperationResult<number> {
-    const preset = db.presets.getPreset(presetName);
+    const preset = this.db.presets.getPreset(presetName);
     if (!preset) {
       return { success: false, error: `Preset not found: ${presetName}` };
     }
@@ -184,7 +190,7 @@ export class PresetManager {
    * List all presets in formatted output
    */
   listPresets(): string {
-    const presets = db.presets.getAllPresets();
+    const presets = this.db.presets.getAllPresets();
 
     if (presets.length === 0) {
       return 'No presets saved yet.';
@@ -211,7 +217,7 @@ export class PresetManager {
    * Export presets to JSON
    */
   exportToJson(): string {
-    const presets = db.presets.getAllPresets();
+    const presets = this.db.presets.getAllPresets();
     return JSON.stringify(presets, null, 2);
   }
 
@@ -236,5 +242,3 @@ export class PresetManager {
     }
   }
 }
-
-export const presets = new PresetManager();

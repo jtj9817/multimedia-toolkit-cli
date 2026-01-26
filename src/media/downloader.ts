@@ -3,8 +3,8 @@
  * Handles downloading media from URLs using yt-dlp
  */
 
-import { config } from '../config/config';
-import type { InputSource, MediaMetadata, OperationResult } from '../types';
+import type { ConfigManager } from '@/config/config';
+import type { InputSource, MediaMetadata, OperationResult } from '@/types';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
@@ -12,9 +12,9 @@ export class MediaDownloader {
   private ytdlpPath: string;
   private tempDir: string;
 
-  constructor() {
-    this.ytdlpPath = config.get('ytdlpPath') || 'yt-dlp';
-    this.tempDir = config.get('tempDir');
+  constructor(options: { config: ConfigManager }) {
+    this.ytdlpPath = options.config.get('ytdlpPath') || 'yt-dlp';
+    this.tempDir = options.config.get('tempDir');
   }
 
   /**
@@ -376,5 +376,3 @@ export class MediaDownloader {
     }
   }
 }
-
-export const downloader = new MediaDownloader();

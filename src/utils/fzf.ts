@@ -5,7 +5,7 @@
 
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
-import type { OperationResult } from '../types';
+import type { OperationResult } from '@/types';
 
 export interface FzfOptions {
   /**
@@ -346,5 +346,3 @@ export class FzfSelector {
     });
   }
 }
-
-export const fzfSelector = new FzfSelector();

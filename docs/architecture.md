@@ -54,7 +54,7 @@ Technical documentation of Multimedia Toolkit's system design, module structure,
 
 1. **Modular Design**: Each component has a single responsibility
 2. **Separation of Concerns**: CLI, business logic, and I/O are separate
-3. **Singleton Pattern**: Configuration and database use singleton instances
+3. **Context-Based DI**: Configuration and database are created via the app context to avoid import-time side effects
 4. **Async/Await**: All I/O operations are asynchronous
 5. **Type Safety**: Full TypeScript type coverage
 
@@ -550,7 +550,7 @@ try {
 
 Follow the existing pattern:
 1. Create file in appropriate subdirectory
-2. Export singleton instance if stateful
+2. Export classes or factories and wire them in `createAppContext` or entrypoints
 3. Use `OperationResult<T>` for return types
 4. Import types from `types.ts`
 5. Update this documentation

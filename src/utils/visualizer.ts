@@ -3,7 +3,7 @@
  * ASCII art visualization for audio waveforms
  */
 
-import type { WaveformData } from '../types';
+import type { WaveformData } from '@/types';
 
 export class WaveformVisualizer {
   private width: number;
@@ -254,5 +254,3 @@ export class WaveformVisualizer {
     return `[${bar}] ${currentFormatted} / ${totalFormatted}`;
   }
 }
-
-export const visualizer = new WaveformVisualizer();
