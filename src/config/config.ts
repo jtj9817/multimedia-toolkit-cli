@@ -7,6 +7,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { db } from '../db/database';
+import { buildTimestampedName, resolveOrganizedSubDir } from '@/utils/path';
 import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
 
 const CONFIG_DIR = join(homedir(), '.multimedia-toolkit');
@@ -73,7 +74,7 @@ class ConfigManager {
     }
 
     // Try to load from database
-    const dbConfig = db.getAllConfig();
+    const dbConfig = db.config.getAllConfig();
     if (Object.keys(dbConfig).length > 0) {
       return this.parseDbConfig(dbConfig);
     }
@@ -124,7 +125,7 @@ class ConfigManager {
 
     // Save to database
     for (const [key, value] of Object.entries(configToSave)) {
-      db.setConfig(key, String(value));
+      db.config.setConfig(key, String(value));
     }
 
     this.config = configToSave;
@@ -222,41 +223,14 @@ class ConfigManager {
 
   // Generate organized output path based on settings
   getOrganizedOutputPath(baseName: string, format: OutputFormat | VideoOutputFormat | ImageOutputFormat, source?: string): string {
-    let subDir = '';
-
-    if (this.config.autoOrganize) {
-      const now = new Date();
-
-      switch (this.config.organizeBy) {
-        case 'date':
-          subDir = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
-          break;
-        case 'source':
-          subDir = source ? this.sanitizeFileName(source) : 'unknown';
-          break;
-        case 'format':
-          subDir = format;
-          break;
-        case 'custom':
-          // Custom organization can be extended here
-          subDir = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-          break;
-      }
-    }
-
+    const subDir = resolveOrganizedSubDir({
+      autoOrganize: this.config.autoOrganize,
+      organizeBy: this.config.organizeBy,
+      format,
+      source
+    });
     const outputDir = this.getOutputDir(subDir);
-    const timestamp = Date.now();
-    const fileName = `${this.sanitizeFileName(baseName)}_${timestamp}.${format}`;
-
-    return join(outputDir, fileName);
-  }
-
-  private sanitizeFileName(name: string): string {
-    return name
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, '_')
-      .replace(/_+/g, '_')
-      .slice(0, 100);
+    return join(outputDir, buildTimestampedName(baseName, format));
   }
 
   // Print current configuration

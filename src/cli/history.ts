@@ -8,7 +8,7 @@ import type { DatabaseManager } from '@/db/database';
 import { formatBytes } from '@/utils/format';
 
 export function showHistory(cli: CLIInterface, db: DatabaseManager): void {
-  const records = db.getRecentProcesses(20);
+  const records = db.processes.getRecentProcesses(20);
 
   if (records.length === 0) {
     cli.info('No conversion history yet.');
@@ -25,7 +25,7 @@ export function showHistory(cli: CLIInterface, db: DatabaseManager): void {
     ])
   );
 
-  const stats = db.getProcessStats();
+  const stats = db.processes.getProcessStats();
   cli.box('Statistics', [
     `Total conversions: ${stats.total}`,
     `Completed: ${stats.completed}`,

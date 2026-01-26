@@ -531,7 +531,7 @@ async function main(): Promise<void> {
   }
 
   if (values.stats) {
-    const stats = db.getProcessStats();
+    const stats = db.processes.getProcessStats();
     const logStats = logger.getLogStats();
     cli.box('Usage Statistics', [
       `Total conversions: ${stats.total}`,

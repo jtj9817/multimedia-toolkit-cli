@@ -3,7 +3,6 @@
  * Provides fuzzy file selection using fzf for enhanced file browsing
  */
 
-import { spawn } from 'child_process';
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
 import type { OperationResult } from '../types';
@@ -57,15 +56,16 @@ export class FzfSelector {
    * Check if fzf is available on the system
    */
   async isFzfAvailable(): Promise<boolean> {
-    return new Promise((resolve) => {
-      const proc = spawn('which', ['fzf'], { stdio: 'pipe' });
-      proc.on('close', (code) => {
-        resolve(code === 0);
+    try {
+      const proc = Bun.spawn(['fzf', '--version'], {
+        stdout: 'pipe',
+        stderr: 'pipe'
       });
-      proc.on('error', () => {
-        resolve(false);
-      });
-    });
+      const exitCode = await proc.exited;
+      return exitCode === 0;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -141,45 +141,44 @@ export class FzfSelector {
     directory: string,
     options: Required<Omit<FzfOptions, 'directory'>>
   ): Promise<string[]> {
-    return new Promise((resolvePromise, reject) => {
-      // Build the shell command for finding files
-      let findCmd = `find "${directory}"`;
+    // Build the shell command for finding files
+    let findCmd = `find "${directory}"`;
 
-      if (options.maxDepth !== undefined) {
-        findCmd += ` -maxdepth ${options.maxDepth}`;
-      }
+    if (options.maxDepth !== undefined) {
+      findCmd += ` -maxdepth ${options.maxDepth}`;
+    }
 
-      if (!options.showHidden) {
-        findCmd += ` -not -path '*/\\.*'`;
-      }
+    if (!options.showHidden) {
+      findCmd += ` -not -path '*/\\.*'`;
+    }
 
-      findCmd += ' -type f';
+    findCmd += ' -type f';
 
-      // Add extension filters using proper shell syntax
-      if (options.extensions.length > 0) {
-        const extPatterns = options.extensions.map(ext => `-name '*.${ext}'`).join(' -o ');
-        findCmd += ` \\( ${extPatterns} \\)`;
-      }
+    // Add extension filters using proper shell syntax
+    if (options.extensions.length > 0) {
+      const extPatterns = options.extensions.map(ext => `-name '*.${ext}'`).join(' -o ');
+      findCmd += ` \\( ${extPatterns} \\)`;
+    }
 
-      // Build fzf arguments
-      const fzfArgs: string[] = [
-        '--ansi',
-        '--border',
-        '--height=80%',
-        '--reverse',
-        `--prompt=${options.prompt} > `,
-        '--info=inline',
-        '--bind=ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-all',
-        '--header=Tab: select multiple | Ctrl+A: select all | Enter: confirm | Esc: cancel'
-      ];
+    // Build fzf arguments
+    const fzfArgs: string[] = [
+      '--ansi',
+      '--border',
+      '--height=80%',
+      '--reverse',
+      `--prompt=${options.prompt} > `,
+      '--info=inline',
+      '--bind=ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-all',
+      '--header=Tab: select multiple | Ctrl+A: select all | Enter: confirm | Esc: cancel'
+    ];
 
-      if (options.multi) {
-        fzfArgs.push('--multi');
-      }
+    if (options.multi) {
+      fzfArgs.push('--multi');
+    }
 
-      if (options.preview) {
-        // Use ffprobe for media files, bat/cat for others
-        const previewCmd = `
+    if (options.preview) {
+      // Use ffprobe for media files, bat/cat for others
+      const previewCmd = `
           file={};
           root="\${FZF_PREVIEW_ROOT:-}";
           if [ -n "$root" ]; then
@@ -275,58 +274,47 @@ export class FzfSelector {
           esac
         `.trim();
 
-        fzfArgs.push(
-          '--preview',
-          previewCmd,
-          '--preview-window=right:50%:wrap'
-        );
-      }
+      fzfArgs.push(
+        '--preview',
+        previewCmd,
+        '--preview-window=right:50%:wrap'
+      );
+    }
 
-      // Use shell to execute the piped command properly
-      const shellCmd = `${findCmd} 2>/dev/null | fzf ${fzfArgs.map(arg => this.escapeForShell(arg)).join(' ')}`;
+    // Use shell to execute the piped command properly
+    const shellCmd = `${findCmd} 2>/dev/null | fzf ${fzfArgs.map(arg => this.escapeForShell(arg)).join(' ')}`;
 
-      const previewRoot = resolve(directory);
-      const proc = spawn('bash', ['-c', shellCmd], {
-        stdio: ['inherit', 'pipe', 'inherit'],
+    const previewRoot = resolve(directory);
+    let proc: ReturnType<typeof Bun.spawn>;
+
+    try {
+      proc = Bun.spawn(['bash', '-c', shellCmd], {
+        stdin: 'inherit',
+        stdout: 'pipe',
+        stderr: 'inherit',
         env: {
           ...process.env,
           SHELL: process.env.SHELL && process.env.SHELL.includes('bash') ? process.env.SHELL : 'bash',
           FZF_PREVIEW_ROOT: previewRoot
         }
       });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`FZF command failed: ${message}`);
+    }
 
-      let output = '';
+    const outputPromise = proc.stdout ? new Response(proc.stdout).text() : Promise.resolve('');
+    const [exitCode, output] = await Promise.all([proc.exited, outputPromise]);
 
-      if (proc.stdout) {
-        proc.stdout.on('data', (data) => {
-          output += data.toString();
-        });
-      }
+    if (exitCode === 0) {
+      return output
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map(f => resolve(f.trim()));
+    }
 
-      proc.on('error', (err) => {
-        reject(new Error(`FZF command failed: ${err.message}`));
-      });
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          const files = output
-            .trim()
-            .split('\n')
-            .filter(Boolean)
-            .map(f => resolve(f.trim()));
-          resolvePromise(files);
-        } else if (code === 1) {
-          // No match found or user pressed Esc
-          resolvePromise([]);
-        } else if (code === 130) {
-          // User canceled with Ctrl+C
-          resolvePromise([]);
-        } else {
-          // Other exit codes - treat as canceled
-          resolvePromise([]);
-        }
-      });
-    });
+    return [];
   }
 
   /**

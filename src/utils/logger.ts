@@ -5,8 +5,9 @@
 
 import { config } from '../config/config';
 import { db } from '../db/database';
-import { existsSync, mkdirSync, writeFileSync, appendFileSync } from 'fs';
-import { join } from 'path';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { basename, join } from 'path';
+import { buildTimestampedName, ensureDir, resolveOrganizedSubDir } from '@/utils/path';
 import type { ProcessRecord, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '../types';
 
 // ANSI color codes for terminal output
@@ -175,7 +176,7 @@ export class Logger {
   // ==================== Export Functions ====================
 
   exportProcessHistory(format: 'json' | 'csv', outputPath?: string): string {
-    const processes = db.getRecentProcesses(10000);
+    const processes = db.processes.getRecentProcesses(10000);
     const finalPath = outputPath || join(
       this.logDir,
       `export-${Date.now()}.${format}`
@@ -223,7 +224,7 @@ export class Logger {
     todayLogs: number;
     logDir: string;
   } {
-    const processes = db.getRecentProcesses(10000);
+    const processes = db.processes.getRecentProcesses(10000);
     const today = new Date().toISOString().split('T')[0];
     const todayLogs = processes.filter(p =>
       p.createdAt?.startsWith(today)
@@ -253,76 +254,22 @@ export class OutputOrganizer {
     const { source, tags, customDir } = options;
 
     if (customDir) {
-      this.ensureDir(customDir);
-      return join(customDir, this.generateFileName(baseName, format, tags));
+      ensureDir(customDir);
+      return join(customDir, buildTimestampedName(baseName, format, { tags }));
     }
 
     const baseDir = config.get('defaultOutputDir');
-    let subDir = '';
-
-    if (config.get('autoOrganize')) {
-      const now = new Date();
-
-      switch (config.get('organizeBy')) {
-        case 'date':
-          subDir = join(
-            String(now.getFullYear()),
-            String(now.getMonth() + 1).padStart(2, '0'),
-            String(now.getDate()).padStart(2, '0')
-          );
-          break;
-        case 'source':
-          subDir = source ? this.sanitize(source) : 'unknown';
-          break;
-        case 'format':
-          subDir = format;
-          break;
-        case 'custom':
-          // Date + source hybrid
-          subDir = join(
-            `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
-            source ? this.sanitize(source) : 'misc'
-          );
-          break;
-      }
-    }
+    const subDir = resolveOrganizedSubDir({
+      autoOrganize: config.get('autoOrganize'),
+      organizeBy: config.get('organizeBy'),
+      format,
+      source
+    });
 
     const outputDir = join(baseDir, subDir);
-    this.ensureDir(outputDir);
+    ensureDir(outputDir);
 
-    return join(outputDir, this.generateFileName(baseName, format, tags));
-  }
-
-  /**
-   * Generate filename with optional tags
-   */
-  private generateFileName(baseName: string, format: OutputFormat | VideoOutputFormat | ImageOutputFormat, tags?: string[]): string {
-    const sanitizedBase = this.sanitize(baseName);
-    const timestamp = Date.now();
-    const tagSuffix = tags && tags.length > 0 ? `_${tags.map(t => this.sanitize(t)).join('_')}` : '';
-
-    return `${sanitizedBase}_${timestamp}${tagSuffix}.${format}`;
-  }
-
-  /**
-   * Sanitize string for use in file names
-   */
-  private sanitize(name: string): string {
-    return name
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_|_$/g, '')
-      .slice(0, 80);
-  }
-
-  /**
-   * Ensure directory exists
-   */
-  private ensureDir(dir: string): void {
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
+    return join(outputDir, buildTimestampedName(baseName, format, { tags }));
   }
 
   /**
@@ -339,16 +286,13 @@ export class OutputOrganizer {
   }
 
   private buildTree(dir: string, maxDepth: number, currentDepth: number): string {
-    const fs = require('fs');
-    const path = require('path');
-
     if (currentDepth >= maxDepth) return '';
 
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const entries = readdirSync(dir, { withFileTypes: true });
     const lines: string[] = [];
 
     const prefix = '  '.repeat(currentDepth);
-    const dirName = path.basename(dir);
+    const dirName = basename(dir);
 
     if (currentDepth === 0) {
       lines.push(`📁 ${dirName}/`);
@@ -357,11 +301,7 @@ export class OutputOrganizer {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         lines.push(`${prefix}├── 📁 ${entry.name}/`);
-        const subTree = this.buildTree(
-          path.join(dir, entry.name),
-          maxDepth,
-          currentDepth + 1
-        );
+        const subTree = this.buildTree(join(dir, entry.name), maxDepth, currentDepth + 1);
         if (subTree) lines.push(subTree);
       } else {
         lines.push(`${prefix}├── 📄 ${entry.name}`);
@@ -379,20 +319,18 @@ export class OutputOrganizer {
 
     if (!existsSync(tempDir)) return 0;
 
-    const fs = require('fs');
-    const path = require('path');
     const now = Date.now();
     const maxAge = olderThanDays * 24 * 60 * 60 * 1000;
     let cleaned = 0;
 
-    const entries = fs.readdirSync(tempDir);
+    const entries = readdirSync(tempDir);
 
     for (const entry of entries) {
-      const filePath = path.join(tempDir, entry);
-      const stats = fs.statSync(filePath);
+      const filePath = join(tempDir, entry);
+      const stats = statSync(filePath);
 
       if (now - stats.mtimeMs > maxAge) {
-        fs.unlinkSync(filePath);
+        unlinkSync(filePath);
         cleaned++;
       }
     }

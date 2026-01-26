@@ -47,7 +47,7 @@ export function logAudioProcess(
   const createdAt = getTimestamp(deps.now);
   const inputType = inferInputType(record.inputPath);
 
-  deps.db.createProcess({
+  deps.db.processes.createProcess({
     jobId: record.jobId,
     inputPath: record.inputPath,
     inputType,
@@ -84,7 +84,7 @@ export function logVideoProcess(
   const createdAt = getTimestamp(deps.now);
   const inputType = inferInputType(record.inputPath);
 
-  deps.db.createProcess({
+  deps.db.processes.createProcess({
     jobId: record.jobId,
     inputPath: record.inputPath,
     inputType,
@@ -126,7 +126,7 @@ export function logGifWebpProcess(
   const createdAt = getTimestamp(deps.now);
   const inputType = inferInputType(record.inputPath);
 
-  deps.db.createProcess({
+  deps.db.processes.createProcess({
     jobId: record.jobId,
     inputPath: record.inputPath,
     inputType,
