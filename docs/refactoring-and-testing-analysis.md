@@ -394,6 +394,21 @@ Phase 3: Bun alignment and robustness ✅
 - Consolidate output organization (single source of truth) ✅
 - Add database repository layer + migrations ✅
 
+Phase 4: Remove import-time side effects (Proposal #4)
+- Problem context: current singleton exports (`config`, `db`, `logger`, `ffmpeg`, `downloader`, `cli`) still allocate resources and touch `~/.multimedia-toolkit` at import time, which makes `bun:test` unsafe and order-dependent.
+- Introduce `createAppContext()` in `src/app/context.ts` that wires dependencies via explicit factories (config/db/logger/ffmpeg/downloader/organizer/presets/visualizer/clock).
+- Add a base-path configuration layer (env override or constructor param) so tests can point to a temp root and avoid touching user state.
+- Replace `export const x = new X()` with either exported classes or `createX(...)` factories; keep singleton exports only in runtime entrypoints (`src/index.ts`, CLI bootstrap).
+- Update `src/cli/commands/context.ts` to construct from `createAppContext()` instead of shared singletons.
+- Add tests for context wiring using `Database(':memory:')` and temp dirs.
+
+Phase 5: Process runner + FZF test seams (Proposals #6 + #8)
+- Problem context: `Bun.spawn()` usage is duplicated and inconsistent across media/config modules, and FZF still uses inline shell building/parse logic that is hard to unit test.
+- Add `src/utils/process-runner.ts` with a typed `runProcess(...)` helper that captures stdout/stderr, exitCode, and supports timeouts/truncation; allow streaming for long-running jobs via callbacks.
+- Replace direct `Bun.spawn()` calls in `src/media/ffmpeg.ts`, `src/media/downloader.ts`, `src/config/config.ts`, and `src/utils/fzf.ts` with the shared runner.
+- Split FZF into pure helpers (`buildFzfShellCommand(...)`, `parseFzfOutput(...)`) plus an I/O boundary function; keep `bun run test-fzf.ts` as the manual verification step.
+- Add unit tests for command building, parsing, and process-runner error handling, and update docs to reflect new helper usage.
+
 ## Notes on Bun/ESM Compatibility
 
 Areas to prioritize:
