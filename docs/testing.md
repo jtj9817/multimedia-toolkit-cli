@@ -162,6 +162,62 @@ To enable Continuous Integration (CI), we need to ensure the environment has the
 | **Paths/Org** | `src/utils/path.ts` | `src/utils/path.test.ts` |
 | **Database** | `src/db/database.ts` | `src/db/database.test.ts` |
 
+## 📋 Proposed Test Coverage Expansion
+
+To ensure robustness, we will expand the test suite to cover specific transcoding and conversion scenarios using "Pure Command Building" tests.
+
+### 1. Audio Extraction Scenarios (`src/media/ffmpeg-builder.test.ts`)
+
+We must verify that `extractAudio` generates the correct FFmpeg flags for every user option.
+
+*   **Format Targets**:
+    *   `MP3` (Standard): Verify `-acodec libmp3lame`.
+    *   `FLAC` (Lossless): Verify `-acodec flac` and absence of bitrate flags.
+    *   `WAV` (Uncompressed): Verify `-acodec pcm_s16le`.
+    *   `Opus`: Verify `-acodec libopus`.
+*   **Quality Presets**:
+    *   `Speech`: Verify `-ar 16000 -ac 1 -b:a 64k`.
+    *   `Music High`: Verify `-ar 48000 -ac 2 -b:a 320k`.
+    *   `Lossless`: Verify no sample rate/bitrate modification flags are added.
+*   **Clipping Logic**:
+    *   **Start + Duration**: Verify `-ss [start]` appears *before* `-i` (fast seek) and `-t [duration]` appears.
+    *   **Start + End**: Verify `-ss [start]` and `-to [end]` (and absence of `-t`).
+*   **Metadata**:
+    *   **Strip**: Verify `-map_metadata -1` is present when requested.
+    *   **Preserve**: Verify absence of stripping flag by default.
+
+### 2. Video Transcoding Scenarios (`src/media/ffmpeg-builder.test.ts`)
+
+We must verify `transcodeVideo` handles the complex matrix of presets, resolutions, and quality settings.
+
+*   **Presets**:
+    *   **Any-to-WebM (Discord)**:
+        *   Verify codec `libvpx-vp9`.
+        *   Verify extension `webm`.
+        *   **Critical**: Verify custom Opus args `['-vbr', 'on', '-compression_level', '10']`.
+    *   **Any-to-MP4**: Verify `libx264` and `aac`.
+    *   **Any-to-MKV**: Verify `libx264` and container `matroska`.
+*   **Resolution Scaling**:
+    *   **2160p (4K)**: Verify filter `scale=3840:2160:force_original_aspect_ratio=decrease`.
+    *   **1440p (2K)**: Verify filter `scale=2560:1440:force_original_aspect_ratio=decrease`.
+    *   **1080p**: Verify filter `scale=1920:1080:force_original_aspect_ratio=decrease`.
+    *   **720p**: Verify filter `scale=1280:720:force_original_aspect_ratio=decrease`.
+    *   **480p**: Verify filter `scale=854:480:force_original_aspect_ratio=decrease`.
+    *   **Source**: Verify no scaling filter is applied.
+*   **Quality Overrides (Test for Each Preset)**:
+    *   **Any-to-WebM**: Test both **CRF Mode** (verify `-crf` exists, `-b:v 0`) and **Bitrate Mode** (verify `-b:v` exists, `-crf` absent).
+    *   **Any-to-MP4**: Test both **CRF Mode** (verify `-crf` exists) and **Bitrate Mode** (verify `-b:v` exists).
+    *   **Any-to-MKV**: Test both **CRF Mode** (verify `-crf` exists) and **Bitrate Mode** (verify `-b:v` exists).
+
+### 3. Path & Organization (`src/utils/path.test.ts`)
+
+*   **Sanitization**: Test removal of `/`, `\`, `:`, and replacement of spaces.
+*   **Timestamping**: Test that filenames include deterministic timestamps (mocked clock).
+*   **Strategies**:
+    *   `Date`: Verify `YYYY/MM/DD` structure.
+    *   `Format`: Verify `format/filename.ext`.
+    *   `Source`: Verify `source_name/filename.ext`.
+
 ## 🚫 Anti-Patterns to Avoid
 
 1.  **Global State**: Never import `config` or `db` directly from the module level in source code if you want to test it. Use the `AppContext` passed into your function/class.
