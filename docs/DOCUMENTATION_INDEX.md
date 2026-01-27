@@ -122,6 +122,14 @@ Complete index of all documentation for Multimedia Toolkit.
 - Feature explanations
 - Common troubleshooting
 
+### 11. [Testing Strategy](./testing.md) 🧪 **Quality Assurance**
+**Comprehensive testing guide**
+- Testing philosophy and stack
+- Unit vs. integration tests
+- Mocking external tools
+- Writing new tests
+- Running tests with Bun
+
 ## 📖 Documentation by User Type
 
 ### For New Users

@@ -324,63 +324,27 @@ async function extractAudio(
 
 ## Testing
 
-### Manual Testing
+We have moved to a **Bun-first** testing strategy using `bun:test`.
 
-Create test files:
+For a complete guide on how to write, run, and structure tests, please see the **[Testing Strategy](./testing.md)** document.
 
-```bash
-# Create test directory
-mkdir test-files
-
-# Add sample media files
-cp ~/Videos/sample.mp4 test-files/
-```
-
-Test scenarios:
+### Quick Start
 
 ```bash
-# Basic extraction
-bun run src/index.ts test-files/sample.mp4
-
-# With clipping
-bun run src/index.ts -i test-files/sample.mp4 -s 10 -d 30
-
-# Interactive mode
-bun run src/index.ts --interactive
-```
-
-### Automated Testing (Future)
-
-Planned test structure:
-
-```
-tests/
-├── unit/
-│   ├── config.test.ts
-│   ├── ffmpeg.test.ts
-│   └── presets.test.ts
-├── integration/
-│   ├── extraction.test.ts
-│   └── batch.test.ts
-└── fixtures/
-    └── sample-media/
-```
-
-Run tests:
-```bash
+# Run all tests
 bun test
+
+# Watch mode
+bun test --watch
 ```
 
-### Testing Checklist
+### Key Principles
 
-When adding features, test:
+1.  **Isolation**: Use `createAppContext` with `:memory:` databases.
+2.  **Pure Logic**: Test "plan builders" separately from execution.
+3.  **No Side Effects**: Tests should not touch `~/.multimedia-toolkit`.
 
-- ✅ Basic happy path
-- ✅ Edge cases (empty input, missing files)
-- ✅ Error handling
-- ✅ CLI and interactive modes
-- ✅ Different file formats
-- ✅ Configuration options
+See [Testing Strategy](./testing.md) for full details.
 
 ## Building
 
