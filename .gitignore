@@ -28,5 +28,6 @@ bun.lock
 
 AGENTS.md 
 CLAUDE.md
+GEMINI.md 
 
 .claude/
