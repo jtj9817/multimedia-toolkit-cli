@@ -12,7 +12,9 @@ This track involves a comprehensive refactor of the Multimedia Toolkit's test su
 1.  **Full Context Injection:** All utility functions and managers that interact with the filesystem, environment, or external processes MUST accept `AppContext` (or a specific subset interface) as an argument.
 2.  **Plan Builder Pattern:** Utility logic must be separated into "Planning" (pure functions that return command arguments or execution steps) and "Execution" (side-effect wrappers).
 3.  **Isolated Test Environment:** Tests must not touch the user's real home directory or global state. Use temporary directories and `:memory:` SQLite databases for every test run.
-4.  **Deterministic Behavior:** Inject time sources (`clock`) and filesystem roots to eliminate flakiness.
+4.  **Deterministic Behavior:** Inject time sources (`clock`) and filesystem roots to eliminate flakiness. Avoid `Bun.sleep` and use deterministic completion signals (e.g., `process.exited`) when applicable.
+5.  **CreateAppContext Standard:** All tests must use `createAppContext` with `dbPath: ':memory:'` and a temp `baseDir` as shown in `docs/testing.md`.
+6.  **Anti-Patterns Avoidance:** No global `config`/`db` imports in testable modules; no hardcoded user paths; mock `console.error` when error output is expected.
 
 ## Non-Functional Requirements
 - **Performance:** Maintain or improve the speed of the test suite by utilizing Bun's native test runner efficiency.
@@ -27,6 +29,7 @@ This track involves a comprehensive refactor of the Multimedia Toolkit's test su
 - [ ] Test coverage for refactored modules is >95%.
 - [ ] `bun test` passes for the entire suite.
 - [ ] **Reliability Verification:** Suite successfully passes 10 consecutive runs in parallel without failure.
+- [ ] Manual `bun run test-fzf.ts` executed when FZF/CLI logic changes.
 
 ## Out of Scope
 - Refactoring `src/media/ffmpeg.ts` or `src/db/` repositories (these will be addressed in a subsequent track).
