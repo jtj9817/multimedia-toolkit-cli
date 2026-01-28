@@ -336,6 +336,37 @@ const result = await ffmpeg.extractAudio(
 
 ---
 
+##### `transcodeVideo()`
+```typescript
+async transcodeVideo(
+  inputPath: string,
+  outputPath: string,
+  options?: VideoTranscodeOptions
+): Promise<OperationResult<{ command: string; outputPath: string }>>
+```
+Transcode video between formats (WebM, MP4, MKV).
+
+**Parameters**:
+- `inputPath`: Input video file path
+- `outputPath`: Output video file path
+- `options`: Transcoding options (preset, resolution, quality)
+
+**Returns**: `OperationResult` with command and output path
+
+**Example**:
+```typescript
+const result = await ffmpeg.transcodeVideo(
+  'input.mov',
+  'output.webm',
+  {
+    presetKey: 'any-to-webm',
+    resolution: '1080p'
+  }
+);
+```
+
+---
+
 ##### `extractMultipleClips()`
 ```typescript
 async extractMultipleClips(
