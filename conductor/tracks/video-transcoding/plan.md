@@ -72,7 +72,7 @@ GUIDELINES:
 - Avoid breaking changes to existing audio CLI workflows.
 - Use the same error handling and progress output style as current commands.
 
-## Phase 4: Validation and test coverage
+## Phase 4: Validation and test coverage [checkpoint: f7731ab]
 GOAL:
 Ensure the transcoding feature is reliable, testable, and documented.
 
@@ -80,10 +80,10 @@ CONTEXT:
 The repo uses Bun tests and manual smoke tests (including FFmpeg and FZF dependencies). New video transcode functionality needs coverage at the command-building layer and at least one manual validation run.
 
 TASKS:
-- [ ] Add unit tests for FFmpeg command assembly for each target format.
-- [ ] Add tests for resolution scaling and preset mapping (including WebM optimized audio flags).
-- [ ] Validate with sample inputs from `docs/samples` or a staged local fixture.
-- [ ] Update docs with examples for Any-to-WebM, Any-to-MP4, Any-to-MKV.
+- [x] Add unit tests for FFmpeg command assembly for each target format. [added MP4/MKV tests]
+- [x] Add tests for resolution scaling and preset mapping (including WebM optimized audio flags). [verified in tests]
+- [x] Validate with sample inputs from `docs/samples` or a staged local fixture. [verified manually with test_input.mp4]
+- [x] Update docs with examples for Any-to-WebM, Any-to-MP4, Any-to-MKV. [already verified in Phase 3]
 
 REQUIREMENTS:
 - `bun test` passes with new tests.
