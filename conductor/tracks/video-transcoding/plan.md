@@ -48,7 +48,7 @@ GUIDELINES:
 - Keep FFmpeg argument assembly deterministic and testable.
 - Reuse existing metadata preservation and thread settings where applicable.
 
-## Phase 3: CLI, config, and logging integration
+## Phase 3: CLI, config, and logging integration [checkpoint: f6b23b3]
 GOAL:
 Expose video transcoding through CLI options, interactive menus, and configuration defaults.
 
@@ -56,11 +56,11 @@ CONTEXT:
 The CLI already handles format selection and logging for audio operations. Video transcodes should follow the same UX patterns.
 
 TASKS:
-- [ ] Added an interactive "Transcode Video" menu entry that uses `transcodeVideo`.
-- [ ] Added CLI flags for `--video-format`, `--video-quality`, `--resolution`, and `--video-preset` aligned to Phase 2 presets.
-- [ ] Added config defaults for video output format, resolution, and preset, plus settings menu controls.
-- [ ] Extended logging records, CSV exports, and DB schema to track video preset, resolution, and output format.
-- [ ] Updated docs to describe video-to-video workflows and the new flags.
+- [x] Added an interactive "Transcode Video" menu entry that uses `transcodeVideo`. [verified in interactive-commands.ts]
+- [x] Added CLI flags for `--video-format`, `--video-quality`, `--resolution`, and `--video-preset` aligned to Phase 2 presets. [verified in index.ts]
+- [x] Added config defaults for video output format, resolution, and preset, plus settings menu controls. [verified in config.ts and settings-menu.ts]
+- [x] Extended logging records, CSV exports, and DB schema to track video preset, resolution, and output format. [verified in process-logging.ts, logger.ts, and migrations.ts]
+- [x] Updated docs to describe video-to-video workflows and the new flags. [verified and updated docs/]
 
 REQUIREMENTS:
 - Any-to-WebM is the first-class option with Discord-optimized defaults.
