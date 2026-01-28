@@ -46,3 +46,13 @@ TASKS:
     - [ ] Create a verification script to run the full suite (`bun test`) 10 times in parallel/sequence
     - [ ] Verify zero flakiness and deterministic behavior across all refactored modules
 - [ ] Task: Conductor - User Manual Verification 'Remaining Utilities and Reliability Verification' (Protocol in workflow.md)
+
+## Compliance Checklist (docs/testing.md)
+- [ ] All tests use `createAppContext` with `dbPath: ':memory:'` and temp `baseDir`
+- [ ] No global `config`/`db` imports in testable modules; no hardcoded user paths
+- [ ] "Plan Builder" logic tested as pure functions; heavy execution mocked or avoided
+- [ ] Minimal mocking of `Bun.spawn`; prefer validating inputs/outputs
+- [ ] Mock `console.error` when errors are expected to keep output clean
+- [ ] Avoid `Bun.sleep`; use deterministic completion signals (e.g., `process.exited`)
+- [ ] Co-locate tests and use `*.test.ts` with `bun:test`
+- [ ] Run manual `bun run test-fzf.ts` when FZF/CLI behavior changes
