@@ -34,4 +34,55 @@ describe('FFmpegWrapper - transcodeVideo', () => {
     expect(command).toContain('-c:v libvpx-vp9');
     expect(command).toContain('-c:a libopus');
   });
+
+  test('builds correct command for any-to-mp4', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.mp4', {
+      presetKey: 'any-to-mp4',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const command = result.data!.command;
+    expect(command).toContain('-c:v libx264');
+    expect(command).toContain('-c:a aac');
+    expect(command).toContain('-f mp4');
+  });
+
+  test('builds correct command for any-to-mkv', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.mkv', {
+      presetKey: 'any-to-mkv',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const command = result.data!.command;
+    expect(command).toContain('-c:v libx264');
+    expect(command).toContain('-c:a aac');
+    expect(command).toContain('-f mkv');
+  });
+
+  test('applies resolution scaling filter', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
+      resolution: '720p',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const command = result.data!.command;
+    // 720p is 1280x720
+    expect(command).toContain('-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2');
+  });
+
+  test('includes WebM optimized audio flags', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
+      presetKey: 'any-to-webm',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const command = result.data!.command;
+    expect(command).toContain('-vbr on');
+    expect(command).toContain('-compression_level 10');
+    expect(command).toContain('-application audio');
+  });
 });
