@@ -113,21 +113,29 @@ async function consumeStream(
 }
 
 async function writeInput(
-  stdin: WritableStream<Uint8Array> | null | undefined,
+  stdin: any,
   input: string | Uint8Array | undefined
 ): Promise<void> {
   if (!stdin) {
     return;
   }
 
-  const writer = stdin.getWriter();
+  if (typeof stdin.getWriter === 'function') {
+    const writer = stdin.getWriter();
 
-  if (input !== undefined) {
-    const payload = typeof input === 'string' ? new TextEncoder().encode(input) : input;
-    await writer.write(payload);
+    if (input !== undefined) {
+      const payload = typeof input === 'string' ? new TextEncoder().encode(input) : input;
+      await writer.write(payload);
+    }
+
+    await writer.close();
+  } else if (typeof stdin.write === 'function' && typeof stdin.end === 'function') {
+    // Node stream fallback
+    if (input !== undefined) {
+      stdin.write(input);
+    }
+    stdin.end();
   }
-
-  await writer.close();
 }
 
 export async function runProcess(

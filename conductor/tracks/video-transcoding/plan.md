@@ -8,10 +8,10 @@ CONTEXT:
 The current toolkit is audio-focused, with FFmpeg wrappers and CLI flows centered on extraction and audio conversion. A new video pipeline must align with existing CLI/config patterns.
 
 TASKS:
-- [ ] Inventory confirms FFmpeg usage is centralized in `src/media/ffmpeg.ts`, logging is handled via `src/utils/logger.ts`, and CLI flows live in `src/index.ts` and `src/cli/interface.ts`.
-- [ ] Defined primary targets: Any-to-WebM, Any-to-MP4, Any-to-MKV, captured in `video-transcoding-presets.json`.
-- [ ] Baseline profile behavior per target includes container, default video/audio codecs, and resolution policy (WebM defaults to 1080p).
-- [ ] Proposed UX surface: add a "Transcode Video" menu entry alongside existing audio options, plus CLI flags `--video-format`, `--video-quality`, `--resolution`, and `--video-preset`.
+- [x] Inventory confirms FFmpeg usage is centralized in `src/media/ffmpeg.ts`, logging is handled via `src/utils/logger.ts`, and CLI flows live in `src/index.ts` and `src/cli/interface.ts`. [inventory checked]
+- [x] Defined primary targets: Any-to-WebM, Any-to-MP4, Any-to-MKV, captured in `video-transcoding-presets.json`. [verified existing file]
+- [x] Baseline profile behavior per target includes container, default video/audio codecs, and resolution policy (WebM defaults to 1080p). [verified in json]
+- [x] Proposed UX surface: add a "Transcode Video" menu entry alongside existing audio options, plus CLI flags `--video-format`, `--video-quality`, `--resolution`, and `--video-preset`. [defined in plan]
 
 REQUIREMENTS:
 - WebM default uses 1080p output and is optimized for Discord.
