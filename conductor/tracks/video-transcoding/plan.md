@@ -1,6 +1,6 @@
 # Video-to-Video Transcoding Plan
 
-## Phase 1: Scope and UX definition
+## Phase 1: Scope and UX definition [checkpoint: 6e7ed2f]
 GOAL:
 Define the product surface and supported conversion targets for video-to-video transcoding.
 
