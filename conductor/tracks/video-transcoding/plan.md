@@ -23,7 +23,7 @@ GUIDELINES:
 - Preserve existing audio conversion behaviors and defaults.
 - Prefer explicit, well-named presets over ad-hoc FFmpeg flags in the UI.
 
-## Phase 2: Core FFmpeg pipeline
+## Phase 2: Core FFmpeg pipeline [checkpoint: afe40e8]
 GOAL:
 Implement the FFmpeg command builder for video-to-video conversions with reusable presets.
 
