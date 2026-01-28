@@ -31,6 +31,16 @@ This track involves a comprehensive refactor of the Multimedia Toolkit's test su
 - [ ] **Reliability Verification:** Suite successfully passes 10 consecutive runs in parallel without failure.
 - [ ] Manual `bun run test-fzf.ts` executed when FZF/CLI logic changes.
 
+## Compliance Checklist (docs/testing.md)
+- [ ] All tests use `createAppContext` with `dbPath: ':memory:'` and temp `baseDir`
+- [ ] No global `config`/`db` imports in testable modules; no hardcoded user paths
+- [ ] "Plan Builder" logic tested as pure functions; heavy execution mocked or avoided
+- [ ] Minimal mocking of `Bun.spawn`; prefer validating inputs/outputs
+- [ ] Mock `console.error` when errors are expected to keep output clean
+- [ ] Avoid `Bun.sleep`; use deterministic completion signals (e.g., `process.exited`)
+- [ ] Co-locate tests and use `*.test.ts` with `bun:test`
+- [ ] Run manual `bun run test-fzf.ts` when FZF/CLI behavior changes
+
 ## Out of Scope
 - Refactoring `src/media/ffmpeg.ts` or `src/db/` repositories (these will be addressed in a subsequent track).
 - Adding new functional features to the toolkit.
