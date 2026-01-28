@@ -31,11 +31,11 @@ CONTEXT:
 The current `FFmpegWrapper` supports audio extraction and clip/chapter workflows. Video transcoding requires new builder methods and type support, while reusing logging and output path helpers.
 
 TASKS:
-- [ ] Added `VideoOutputFormat`, transcode preset types, and per-target defaults in `src/types.ts` and `src/media/video-presets.ts`.
-- [ ] Implemented `transcodeVideo` in `src/media/ffmpeg.ts` with `OperationResult` output matching existing patterns.
-- [ ] Added Any-to-WebM, Any-to-MP4, Any-to-MKV presets with codec, CRF, and scaling defaults.
-- [ ] Implemented resolution scaling to 1080p with aspect ratio preservation and padding for the WebM preset.
-- [ ] Applied WebM audio settings from commit `d47cdb4ddc63787ca74076a699dd3fd2eac04d23` using Opus with `-vbr on -compression_level 10 -application audio` and the `optimized_webm` preset values.
+- [x] Added `VideoOutputFormat`, transcode preset types, and per-target defaults in `src/types.ts` and `src/media/video-presets.ts`. [verified with tests]
+- [x] Implemented `transcodeVideo` in `src/media/ffmpeg.ts` with `OperationResult` output matching existing patterns. [verified existing implementation]
+- [x] Added Any-to-WebM, Any-to-MP4, Any-to-MKV presets with codec, CRF, and scaling defaults. [verified in video-presets.ts]
+- [x] Implemented resolution scaling to 1080p with aspect ratio preservation and padding for the WebM preset. [verified in transcodeVideo logic]
+- [x] Applied WebM audio settings from commit `d47cdb4ddc63787ca74076a699dd3fd2eac04d23` using Opus with `-vbr on -compression_level 10 -application audio` and the `optimized_webm` preset values. [verified in transcodeVideo logic]
 
 REQUIREMENTS:
 - WebM defaults to 1080p and Discord-optimized settings.
