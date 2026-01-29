@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'bun:test';
+import { afterAll, describe, expect, it } from 'bun:test';
 import { buildTimestampedName, resolveOrganizedSubDir, sanitizeFileName } from './path';
 import { createAppContext } from '@/app/context';
 import type { Clock } from './clock';
+import { mkdtempSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 class MockClock implements Clock {
   constructor(private _now: number) {}
@@ -12,14 +15,23 @@ describe('Path Utilities (Refactored)', () => {
   const fixedTime = new Date('2023-01-01T12:00:00Z').getTime();
   const mockClock = new MockClock(fixedTime);
   
-  // Create context with mock clock and in-memory DB/temp dir to satisfy safety checks
+  const baseDir = mkdtempSync(join(tmpdir(), 'mat-path-utils-'));
+  const defaultOutputDir = join(baseDir, 'out');
+
+  // Create context with mock clock and in-memory DB/temp dirs to satisfy safety checks
   const ctx = createAppContext({
     clock: mockClock,
+    baseDir,
+    defaultOutputDir,
     paths: {
       dbPath: ':memory:',
-      baseDir: '/tmp/test-path-utils' 
-    },
-    baseDir: '/tmp/test-path-utils' // Explicit override for safety check
+      baseDir,
+      defaultOutputDir
+    }
+  });
+
+  afterAll(() => {
+    rmSync(baseDir, { recursive: true, force: true });
   });
 
   describe('sanitizeFileName', () => {
