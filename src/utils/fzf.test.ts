@@ -1,6 +1,7 @@
-import { describe, expect, test } from 'bun:test';
-import { buildFzfShellCommand, parseFzfOutput } from '@/utils/fzf';
+import { describe, expect, test, mock } from 'bun:test';
+import { buildFzfShellCommand, parseFzfOutput, FzfSelector } from '@/utils/fzf';
 import { resolve } from 'path';
+import type { ProcessRunner, RunProcessResult } from '@/utils/process-runner';
 
 describe('buildFzfShellCommand', () => {
   test('includes filters, prompt, and multi-select flags', () => {
@@ -48,5 +49,56 @@ describe('parseFzfOutput', () => {
       resolve(cwd, 'relative/file.mp3'),
       resolve(cwd, '/abs/path.wav')
     ]);
+  });
+});
+
+describe('FzfSelector', () => {
+  const mockRun = mock((cmd: string[]) => Promise.resolve({
+    exitCode: 0,
+    stdout: '',
+    stderr: '',
+    timedOut: false,
+    truncated: { stdout: false, stderr: false }
+  } as RunProcessResult));
+
+  const mockRunner: ProcessRunner = { run: mockRun };
+  const fzf = new FzfSelector(mockRunner);
+
+  test('isFzfAvailable checks version', async () => {
+    mockRun.mockResolvedValueOnce({ exitCode: 0 } as any);
+    expect(await fzf.isFzfAvailable()).toBe(true);
+    expect(mockRun).toHaveBeenCalledWith(['fzf', '--version'], expect.anything());
+
+    mockRun.mockResolvedValueOnce({ exitCode: 1 } as any);
+    expect(await fzf.isFzfAvailable()).toBe(false);
+  });
+
+  test('selectFiles runs the correct command', async () => {
+    // Mock availability check
+    mockRun.mockResolvedValueOnce({ exitCode: 0 } as any);
+    
+    // Mock selection result
+    mockRun.mockResolvedValueOnce({
+      exitCode: 0, 
+      stdout: 'file1.mp3\nfile2.mp3',
+      stderr: '' 
+    } as any);
+
+    // We need to mock existence checks since we are passing a real directory
+    // Using current directory '.' should pass validation
+    const result = await fzf.selectFiles({ directory: '.', multi: true });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toHaveLength(2);
+    
+    // Verify run call
+    const calls = mockRun.mock.calls;
+    const lastCall = calls[calls.length - 1];
+    const cmdArgs = lastCall[0] as string[];
+    
+    expect(cmdArgs[0]).toBe('bash');
+    expect(cmdArgs[1]).toBe('-c');
+    expect(cmdArgs[2]).toContain('find "."');
+    expect(cmdArgs[2]).toContain('fzf');
   });
 });
