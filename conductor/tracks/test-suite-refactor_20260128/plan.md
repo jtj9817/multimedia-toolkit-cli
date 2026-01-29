@@ -11,7 +11,7 @@ TASKS:
     - [x] Refactor `createAppContext` and the `AppContext` type to strictly enforce dependency injection and support mocking
 - [x] Task: Conductor - User Manual Verification 'Core Context & Isolation Infrastructure' (Protocol in workflow.md)
 
-## Phase 2: Filesystem and Path Logic Refactor
+## Phase 2: Filesystem and Path Logic Refactor [checkpoint: 3862c16]
 GOAL: Refactor path-related utilities to use the injected context and separate path planning from filesystem state.
 
 TASKS:
