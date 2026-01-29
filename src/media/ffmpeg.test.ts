@@ -10,8 +10,12 @@ const mockConfig = {
   }
 } as any;
 
+const mockRunner = {
+  run: mock(() => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' }))
+} as any;
+
 describe('FFmpegWrapper - transcodeVideo', () => {
-  const ffmpeg = new FFmpegWrapper({ config: mockConfig } as any);
+  const ffmpeg = new FFmpegWrapper({ config: mockConfig, processRunner: mockRunner });
 
   test('transcodeVideo exists', () => {
     expect(typeof ffmpeg.transcodeVideo).toBe('function');

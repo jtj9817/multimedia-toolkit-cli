@@ -14,6 +14,12 @@ try {
   console.log('\n▶️  Testing FZF Logic...');
   await $`bun test src/utils/fzf.test.ts`;
 
+  console.log('\n▶️  Testing FFmpeg Wrapper...');
+  await $`bun test src/media/ffmpeg.test.ts`;
+
+  console.log('\n▶️  Testing Media Downloader...');
+  await $`bun test src/media/downloader.test.ts`;
+
   console.log('\n✅ Phase 3 Verification Passed!');
 } catch (error) {
   console.error('\n❌ Phase 3 Verification Failed!');
