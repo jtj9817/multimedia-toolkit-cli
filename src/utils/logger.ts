@@ -5,7 +5,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
-import { buildTimestampedName, ensureDir, resolveOrganizedSubDir } from '@/utils/path';
+import { buildTimestampedName, ensureDirectoryExists, resolveOrganizedSubDir } from '@/utils/path';
 import type { ProcessRecord, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '@/types';
 import type { ConfigManager } from '@/config/config';
 import type { DatabaseManager } from '@/db/database';
@@ -52,9 +52,7 @@ export class Logger {
   }
 
   private ensureLogDir(): void {
-    if (!existsSync(this.logDir)) {
-      mkdirSync(this.logDir, { recursive: true });
-    }
+    ensureDirectoryExists({ clock: this.clock }, this.logDir);
   }
 
   private getLogFileName(): string {
@@ -278,25 +276,25 @@ export class OutputOrganizer {
     } = {}
   ): string {
     const { source, tags, customDir } = options;
+    const ctx = { clock: this.clock };
 
     if (customDir) {
-      ensureDir(customDir);
-      return join(customDir, buildTimestampedName(baseName, format, { tags, now: this.clock.now() }));
+      ensureDirectoryExists(ctx, customDir);
+      return join(customDir, buildTimestampedName(ctx, baseName, format, { tags }));
     }
 
     const baseDir = this.config.get('defaultOutputDir');
-    const subDir = resolveOrganizedSubDir({
+    const subDir = resolveOrganizedSubDir(ctx, {
       autoOrganize: this.config.get('autoOrganize'),
       organizeBy: this.config.get('organizeBy'),
       format,
-      source,
-      now: new Date(this.clock.now())
+      source
     });
 
     const outputDir = join(baseDir, subDir);
-    ensureDir(outputDir);
+    ensureDirectoryExists(ctx, outputDir);
 
-    return join(outputDir, buildTimestampedName(baseName, format, { tags, now: this.clock.now() }));
+    return join(outputDir, buildTimestampedName(ctx, baseName, format, { tags }));
   }
 
   /**

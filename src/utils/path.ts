@@ -5,12 +5,23 @@
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
+export interface PathContext {
+  clock: {
+    now(): number;
+  };
+}
+
 export type OrganizeBy = 'date' | 'source' | 'format' | 'custom';
 
-export function ensureDir(dir: string): void {
+export function ensureDirectoryExists(ctx: PathContext | null, dir: string): void {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
+}
+
+// Legacy alias for compatibility, marked deprecated
+export function ensureDir(dir: string): void {
+  ensureDirectoryExists(null, dir);
 }
 
 export function sanitizeFileName(name: string, maxLength: number = 80): string {
@@ -23,17 +34,17 @@ export function sanitizeFileName(name: string, maxLength: number = 80): string {
 }
 
 export function buildTimestampedName(
+  ctx: PathContext,
   baseName: string,
   extension: string,
   options: {
     tags?: string[];
-    now?: number;
     maxLength?: number;
   } = {}
 ): string {
   const maxLength = options.maxLength ?? 80;
   const sanitizedBase = sanitizeFileName(baseName, maxLength);
-  const timestamp = options.now ?? Date.now();
+  const timestamp = ctx.clock.now();
   const tagSuffix = options.tags && options.tags.length > 0
     ? `_${options.tags.map(tag => sanitizeFileName(tag, maxLength)).join('_')}`
     : '';
@@ -41,16 +52,18 @@ export function buildTimestampedName(
   return `${sanitizedBase}_${timestamp}${tagSuffix}.${extension}`;
 }
 
-export function resolveOrganizedSubDir(options: {
-  autoOrganize: boolean;
-  organizeBy: OrganizeBy;
-  format: string;
-  source?: string;
-  now?: Date;
-}): string {
+export function resolveOrganizedSubDir(
+  ctx: PathContext,
+  options: {
+    autoOrganize: boolean;
+    organizeBy: OrganizeBy;
+    format: string;
+    source?: string;
+  }
+): string {
   if (!options.autoOrganize) return '';
 
-  const now = options.now ?? new Date();
+  const now = new Date(ctx.clock.now());
 
   switch (options.organizeBy) {
     case 'date':

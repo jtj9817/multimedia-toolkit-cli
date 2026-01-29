@@ -5,7 +5,6 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { buildTimestampedName, resolveOrganizedSubDir } from '@/utils/path';
 import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '@/types';
 import type { AppPaths } from '@/app/paths';
 import type { DatabaseManager } from '@/db/database';
@@ -232,18 +231,6 @@ class ConfigManager {
     }
 
     return outputDir;
-  }
-
-  // Generate organized output path based on settings
-  getOrganizedOutputPath(baseName: string, format: OutputFormat | VideoOutputFormat | ImageOutputFormat, source?: string): string {
-    const subDir = resolveOrganizedSubDir({
-      autoOrganize: this.config.autoOrganize,
-      organizeBy: this.config.organizeBy,
-      format,
-      source
-    });
-    const outputDir = this.getOutputDir(subDir);
-    return join(outputDir, buildTimestampedName(baseName, format));
   }
 
   // Print current configuration
