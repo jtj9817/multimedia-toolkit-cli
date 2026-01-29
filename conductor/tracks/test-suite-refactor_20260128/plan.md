@@ -25,9 +25,9 @@ TASKS:
 GOAL: Modernize process execution and interactive search utilities to follow the deterministic "Plan Builder" pattern.
 
 TASKS:
-- [ ] Task: Refactor `src/utils/process-runner.ts`
-    - [ ] Write tests that validate planned inputs/outputs and runner results; mock `Bun.spawn` only when strictly necessary
-    - [ ] Implement context-aware process running and pure planning for argument assembly (test the plan, not heavy execution)
+- [x] Task: Refactor `src/utils/process-runner.ts` 860454a
+    - [x] Write tests that validate planned inputs/outputs and runner results; mock `Bun.spawn` only when strictly necessary
+    - [x] Implement context-aware process running and pure planning for argument assembly (test the plan, not heavy execution)
 - [ ] Task: Refactor `src/utils/fzf.ts`
     - [ ] Write failing tests for FZF command generation and output parsing
     - [ ] Refactor FZF logic to separate command planning from terminal execution
