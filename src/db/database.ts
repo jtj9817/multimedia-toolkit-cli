@@ -15,24 +15,33 @@ import { TagsRepository } from '@/db/repositories/tags';
 export interface DatabaseManagerOptions {
   dbPath: string;
   dataDir: string;
+  skipInit?: boolean;
 }
 
 export class DatabaseManager {
-  private db: Database;
+  private db!: Database;
   readonly dbPath: string;
   readonly dataDir: string;
 
-  readonly processes: ProcessHistoryRepository;
-  readonly presets: PresetRepository;
-  readonly config: ConfigRepository;
-  readonly tags: TagsRepository;
-  readonly interrupted: InterruptedOperationsRepository;
+  processes!: ProcessHistoryRepository;
+  presets!: PresetRepository;
+  config!: ConfigRepository;
+  tags!: TagsRepository;
+  interrupted!: InterruptedOperationsRepository;
 
   constructor(options: DatabaseManagerOptions) {
     this.dbPath = options.dbPath;
     this.dataDir = options.dataDir;
 
-    if (this.dataDir && !existsSync(this.dataDir)) {
+    if (!options.skipInit) {
+      this.init();
+    }
+  }
+
+  init(): void {
+    if (this.db) return;
+
+    if (this.dataDir && this.dbPath !== ':memory:' && !existsSync(this.dataDir)) {
       mkdirSync(this.dataDir, { recursive: true });
     }
 
@@ -49,6 +58,7 @@ export class DatabaseManager {
   }
 
   exportToJson(): string {
+    this.ensureInitialized();
     const data = {
       processes: this.processes.getRecentProcesses(1000),
       presets: this.presets.getAllPresets(),

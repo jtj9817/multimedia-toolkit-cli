@@ -14,6 +14,7 @@ import { runProcess } from '@/utils/process-runner';
 export interface ConfigManagerOptions {
   paths: AppPaths;
   db?: DatabaseManager;
+  skipInit?: boolean;
 }
 
 export function buildDefaultConfig(paths: AppPaths): AppConfig {
@@ -42,7 +43,7 @@ export function buildDefaultConfig(paths: AppPaths): AppConfig {
 }
 
 class ConfigManager {
-  private config: AppConfig;
+  private config!: AppConfig;
   private paths: AppPaths;
   private db?: DatabaseManager;
   private defaultConfig: AppConfig;
@@ -51,17 +52,25 @@ class ConfigManager {
     this.paths = options.paths;
     this.db = options.db;
     this.defaultConfig = buildDefaultConfig(this.paths);
+    
+    if (!options.skipInit) {
+      this.init();
+    }
+  }
+
+  init(): void {
+    if (this.config) return;
     this.config = this.loadConfig();
   }
 
   private loadConfig(): AppConfig {
     // Ensure config directory exists
-    if (!existsSync(this.paths.configDir)) {
+    if (this.paths.configDir && this.paths.configDir !== ':memory:' && !existsSync(this.paths.configDir)) {
       mkdirSync(this.paths.configDir, { recursive: true });
     }
 
     // Ensure temp directory exists
-    if (!existsSync(this.defaultConfig.tempDir)) {
+    if (this.defaultConfig.tempDir && !existsSync(this.defaultConfig.tempDir)) {
       mkdirSync(this.defaultConfig.tempDir, { recursive: true });
     }
 
@@ -77,13 +86,14 @@ class ConfigManager {
 
     // Try to load from database
     if (this.db) {
+      this.db.init(); // Ensure DB is initialized
       const dbConfig = this.db.config.getAllConfig();
       if (Object.keys(dbConfig).length > 0) {
         return this.parseDbConfig(dbConfig);
       }
     }
 
-    // Save defaults and return
+    // Save defaults and return (only if not skipping init)
     this.saveConfig(this.defaultConfig);
     return this.defaultConfig;
   }
