@@ -1,6 +1,6 @@
 # Implementation Plan: Test Suite Refactor & Modernization
 
-## Phase 1: Core Context & Isolation Infrastructure
+## Phase 1: Core Context & Isolation Infrastructure [checkpoint: 87c04bb]
 GOAL: Establish the foundational dependency injection pattern and ensure the application context can be perfectly isolated for testing.
 
 TASKS:
@@ -9,7 +9,7 @@ TASKS:
     - [x] Ensure all tests use `createAppContext` with `dbPath: ':memory:'` and a temp `baseDir` (per `docs/testing.md`)
     - [x] Add explicit anti-pattern checks in tests or helpers (no global config/db import, no hardcoded user paths)
     - [x] Refactor `createAppContext` and the `AppContext` type to strictly enforce dependency injection and support mocking
-- [ ] Task: Conductor - User Manual Verification 'Core Context & Isolation Infrastructure' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Core Context & Isolation Infrastructure' (Protocol in workflow.md)
 
 ## Phase 2: Filesystem and Path Logic Refactor
 GOAL: Refactor path-related utilities to use the injected context and separate path planning from filesystem state.
