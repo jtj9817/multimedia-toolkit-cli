@@ -4,11 +4,11 @@
 GOAL: Establish the foundational dependency injection pattern and ensure the application context can be perfectly isolated for testing.
 
 TASKS:
-- [ ] Task: Refactor `AppContext` and factory in `src/app/context.ts`
-    - [ ] Write failing tests in `src/app/context.test.ts` that demonstrate the need for isolated base directories and in-memory databases
-    - [ ] Ensure all tests use `createAppContext` with `dbPath: ':memory:'` and a temp `baseDir` (per `docs/testing.md`)
-    - [ ] Add explicit anti-pattern checks in tests or helpers (no global config/db import, no hardcoded user paths)
-    - [ ] Refactor `createAppContext` and the `AppContext` type to strictly enforce dependency injection and support mocking
+- [x] Task: Refactor `AppContext` and factory in `src/app/context.ts` d8d418a
+    - [x] Write failing tests in `src/app/context.test.ts` that demonstrate the need for isolated base directories and in-memory databases
+    - [x] Ensure all tests use `createAppContext` with `dbPath: ':memory:'` and a temp `baseDir` (per `docs/testing.md`)
+    - [x] Add explicit anti-pattern checks in tests or helpers (no global config/db import, no hardcoded user paths)
+    - [x] Refactor `createAppContext` and the `AppContext` type to strictly enforce dependency injection and support mocking
 - [ ] Task: Conductor - User Manual Verification 'Core Context & Isolation Infrastructure' (Protocol in workflow.md)
 
 ## Phase 2: Filesystem and Path Logic Refactor
