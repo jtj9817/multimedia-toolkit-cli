@@ -19,7 +19,7 @@ TASKS:
     - [ ] Write failing tests for `path.ts` utilities (sanitization, timestamping) using a mocked `AppContext`
     - [ ] Mock time sources (`clock`) for deterministic timestamp tests (avoid `Bun.sleep`)
     - [ ] Update `path.ts` functions to accept context and implement "Plan Builder" patterns for path organization
-- [ ] Task: Conductor - User Manual Verification 'Filesystem and Path Logic Refactor' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Filesystem and Path Logic Refactor' (Protocol in workflow.md)
 
 ## Phase 3: Process Runner and FZF Logic Refactor
 GOAL: Modernize process execution and interactive search utilities to follow the deterministic "Plan Builder" pattern.
