@@ -15,7 +15,7 @@ TASKS:
 GOAL: Refactor path-related utilities to use the injected context and separate path planning from filesystem state.
 
 TASKS:
-- [ ] Task: Refactor `src/utils/path.ts` for Context Injection
+- [x] Task: Refactor `src/utils/path.ts` for Context Injection 11d8082
     - [ ] Write failing tests for `path.ts` utilities (sanitization, timestamping) using a mocked `AppContext`
     - [ ] Mock time sources (`clock`) for deterministic timestamp tests (avoid `Bun.sleep`)
     - [ ] Update `path.ts` functions to accept context and implement "Plan Builder" patterns for path organization
