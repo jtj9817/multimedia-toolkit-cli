@@ -28,10 +28,10 @@ TASKS:
 - [x] Task: Refactor `src/utils/process-runner.ts` 860454a
     - [x] Write tests that validate planned inputs/outputs and runner results; mock `Bun.spawn` only when strictly necessary
     - [x] Implement context-aware process running and pure planning for argument assembly (test the plan, not heavy execution)
-- [ ] Task: Refactor `src/utils/fzf.ts`
-    - [ ] Write failing tests for FZF command generation and output parsing
-    - [ ] Refactor FZF logic to separate command planning from terminal execution
-    - [ ] Run manual `bun run test-fzf.ts` for interactive verification
+- [x] Task: Refactor `src/utils/fzf.ts` 3cf0056
+    - [x] Write failing tests for FZF command generation and output parsing
+    - [x] Refactor FZF logic to separate command planning from terminal execution
+    - [x] Run manual `bun run test-fzf.ts` for interactive verification
 - [ ] Task: Conductor - User Manual Verification 'Process Runner and FZF Logic Refactor' (Protocol in workflow.md)
 
 ## Phase 4: Miscellaneous Utilities and Reliability Verification
