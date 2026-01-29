@@ -21,7 +21,7 @@ import type {
 } from '@/types';
 import { QUALITY_PRESETS } from '@/types';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
-import { runProcess } from '@/utils/process-runner';
+import type { ProcessRunner } from '@/utils/process-runner';
 
 const WEBM_OPUS_ARGS = ['-vbr', 'on', '-compression_level', '10', '-application', 'audio'];
 const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
@@ -33,9 +33,11 @@ export class FFmpegWrapper {
   private ffmpegPath: string;
   private ffprobePath: string;
   private config: ConfigManager;
+  private processRunner: ProcessRunner;
 
-  constructor(options: { config: ConfigManager }) {
+  constructor(options: { config: ConfigManager; processRunner: ProcessRunner }) {
     this.config = options.config;
+    this.processRunner = options.processRunner;
     this.ffmpegPath = this.config.get('ffmpegPath') || 'ffmpeg';
     this.ffprobePath = this.config.get('ffprobePath') || 'ffprobe';
   }
@@ -45,7 +47,7 @@ export class FFmpegWrapper {
    */
   async getMediaInfo(inputPath: string): Promise<OperationResult<MediaMetadata>> {
     try {
-      const result = await runProcess([
+      const result = await this.processRunner.run([
         this.ffprobePath,
         '-v', 'quiet',
         '-print_format', 'json',
@@ -202,7 +204,7 @@ export class FFmpegWrapper {
     }
 
     try {
-      const result = await runProcess([this.ffmpegPath, ...args], {
+      const result = await this.processRunner.run([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
@@ -300,7 +302,7 @@ export class FFmpegWrapper {
     }
 
     try {
-      const result = await runProcess([this.ffmpegPath, ...args], {
+      const result = await this.processRunner.run([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
@@ -432,7 +434,7 @@ export class FFmpegWrapper {
     const { noiseThreshold = '-30dB', minDuration = 0.5 } = options;
 
     try {
-      const result = await runProcess([
+      const result = await this.processRunner.run([
         this.ffmpegPath,
         '-i', inputPath,
         '-af', `silencedetect=noise=${noiseThreshold}:d=${minDuration}`,
@@ -452,7 +454,7 @@ export class FFmpegWrapper {
       // Parse silence detection output
       const segments: SilenceSegment[] = [];
       const startRegex = /silence_start: ([\d.]+)/g;
-      const endRegex = /silence_end: ([\d.]+) \| silence_duration: ([\d.]+)/g;
+      const endRegex = /silence_end: ([\d.]+) | silence_duration: ([\d.]+)/g;
 
       const starts: number[] = [];
       let match: RegExpExecArray | null;
@@ -634,7 +636,7 @@ export class FFmpegWrapper {
         };
       }
 
-      const result = await runProcess([this.ffmpegPath, ...args], {
+      const result = await this.processRunner.run([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
@@ -670,7 +672,7 @@ export class FFmpegWrapper {
       }
 
       // Extract audio levels using ffmpeg
-      const result = await runProcess([
+      const result = await this.processRunner.run([
         this.ffmpegPath,
         '-i', inputPath,
         '-af', `asetnsamples=n=${samples},astats=metadata=1:reset=1`,
@@ -702,7 +704,7 @@ export class FFmpegWrapper {
       // If we didn't get enough samples, generate simplified data
       if (levels.length < 10) {
         // Fall back to simpler volume detection
-        const simpleResult = await runProcess([
+        const simpleResult = await this.processRunner.run([
           this.ffmpegPath,
           '-i', inputPath,
           '-af', 'volumedetect',
@@ -940,7 +942,7 @@ export class FFmpegWrapper {
       paletteArgs.push(paletteFile);
 
       if (!dryRun) {
-        const paletteResult = await runProcess([this.ffmpegPath, ...paletteArgs], {
+        const paletteResult = await this.processRunner.run([this.ffmpegPath, ...paletteArgs], {
           stdout: 'pipe',
           stderr: 'pipe'
         });
@@ -985,7 +987,7 @@ export class FFmpegWrapper {
         };
       }
 
-      const gifResult = await runProcess([this.ffmpegPath, ...gifArgs], {
+      const gifResult = await this.processRunner.run([this.ffmpegPath, ...gifArgs], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
@@ -1091,7 +1093,7 @@ export class FFmpegWrapper {
     }
 
     try {
-      const result = await runProcess([this.ffmpegPath, ...args], {
+      const result = await this.processRunner.run([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
       });

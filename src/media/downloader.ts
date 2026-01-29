@@ -7,15 +7,17 @@ import type { ConfigManager } from '@/config/config';
 import type { InputSource, MediaMetadata, OperationResult } from '@/types';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { runProcess } from '@/utils/process-runner';
+import type { ProcessRunner } from '@/utils/process-runner';
 
 export class MediaDownloader {
   private ytdlpPath: string;
   private tempDir: string;
+  private processRunner: ProcessRunner;
 
-  constructor(options: { config: ConfigManager }) {
+  constructor(options: { config: ConfigManager; processRunner: ProcessRunner }) {
     this.ytdlpPath = options.config.get('ytdlpPath') || 'yt-dlp';
     this.tempDir = options.config.get('tempDir');
+    this.processRunner = options.processRunner;
   }
 
   /**
@@ -69,7 +71,7 @@ export class MediaDownloader {
    */
   async getUrlMetadata(url: string): Promise<OperationResult<MediaMetadata & { title: string; formats?: unknown[] }>> {
     try {
-      const result = await runProcess([
+      const result = await this.processRunner.run([
         this.ytdlpPath,
         '--dump-json',
         '--no-download',
@@ -167,7 +169,7 @@ export class MediaDownloader {
       console.log(`\n📥 Downloading from: ${url}`);
       console.log(`   Output: ${finalOutputPath}\n`);
 
-      const result = await runProcess([this.ytdlpPath, ...args], {
+      const result = await this.processRunner.run([this.ytdlpPath, ...args], {
         stdout: 'inherit',  // Show progress
         stderr: 'pipe'
       });
@@ -240,7 +242,7 @@ export class MediaDownloader {
    */
   async listFormats(url: string): Promise<OperationResult<string>> {
     try {
-      const result = await runProcess([
+      const result = await this.processRunner.run([
         this.ytdlpPath,
         '-F',
         url
@@ -331,7 +333,7 @@ export class MediaDownloader {
    */
   async isYtdlpAvailable(): Promise<boolean> {
     try {
-      const result = await runProcess([this.ytdlpPath, '--version'], {
+      const result = await this.processRunner.run([this.ytdlpPath, '--version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
@@ -346,7 +348,7 @@ export class MediaDownloader {
    */
   async updateYtdlp(): Promise<OperationResult<string>> {
     try {
-      const result = await runProcess([this.ytdlpPath, '-U'], {
+      const result = await this.processRunner.run([this.ytdlpPath, '-U'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });

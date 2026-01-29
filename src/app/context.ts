@@ -10,16 +10,19 @@ import { WaveformVisualizer } from '@/utils/visualizer';
 import { Logger, OutputOrganizer } from '@/utils/logger';
 import { FzfSelector } from '@/utils/fzf';
 import { systemClock, type Clock } from '@/utils/clock';
+import { BunProcessRunner, type ProcessRunner } from '@/utils/process-runner';
 
 export interface AppContext extends CommandContext {
   paths: AppPaths;
   fzf: FzfSelector;
+  processRunner: ProcessRunner;
 }
 
 export interface AppContextOptions extends AppPathsOptions {
   paths?: Partial<AppPaths>;
   clock?: Clock;
   fzf?: FzfSelector;
+  processRunner?: ProcessRunner;
 }
 
 export function createAppContext(options: AppContextOptions = {}): AppContext {
@@ -62,6 +65,7 @@ export function createAppContext(options: AppContextOptions = {}): AppContext {
   }
 
   const clock = options.clock ?? systemClock;
+  const processRunner = options.processRunner ?? new BunProcessRunner();
 
   const db = createDatabaseManager({
     dbPath: paths.dbPath,
@@ -73,8 +77,8 @@ export function createAppContext(options: AppContextOptions = {}): AppContext {
   const presets = new PresetManager({ db });
   const fzf = options.fzf ?? new FzfSelector();
   const cli = new CLIInterface({ fzf });
-  const ffmpeg = new FFmpegWrapper({ config });
-  const downloader = new MediaDownloader({ config });
+  const ffmpeg = new FFmpegWrapper({ config, processRunner });
+  const downloader = new MediaDownloader({ config, processRunner });
   const visualizer = new WaveformVisualizer();
 
   return {
@@ -89,6 +93,7 @@ export function createAppContext(options: AppContextOptions = {}): AppContext {
     logger,
     organizer,
     visualizer,
-    fzf
+    fzf,
+    processRunner
   };
 }

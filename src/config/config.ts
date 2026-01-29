@@ -8,12 +8,13 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '@/types';
 import type { AppPaths } from '@/app/paths';
 import type { DatabaseManager } from '@/db/database';
-import { runProcess } from '@/utils/process-runner';
+import { BunProcessRunner, type ProcessRunner } from '@/utils/process-runner';
 
 export interface ConfigManagerOptions {
   paths: AppPaths;
   db?: DatabaseManager;
   skipInit?: boolean;
+  processRunner?: ProcessRunner;
 }
 
 export function buildDefaultConfig(paths: AppPaths): AppConfig {
@@ -46,10 +47,12 @@ class ConfigManager {
   private paths: AppPaths;
   private db?: DatabaseManager;
   private defaultConfig: AppConfig;
+  private processRunner: ProcessRunner;
 
   constructor(options: ConfigManagerOptions) {
     this.paths = options.paths;
     this.db = options.db;
+    this.processRunner = options.processRunner ?? new BunProcessRunner();
     this.defaultConfig = buildDefaultConfig(this.paths);
     
     if (!options.skipInit) {
@@ -175,7 +178,7 @@ class ConfigManager {
 
     // Check ffmpeg
     try {
-      const result = await runProcess([this.config.ffmpegPath!, '-version'], {
+      const result = await this.processRunner.run([this.config.ffmpegPath!, '-version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
@@ -188,7 +191,7 @@ class ConfigManager {
 
     // Check ffprobe
     try {
-      const result = await runProcess([this.config.ffprobePath!, '-version'], {
+      const result = await this.processRunner.run([this.config.ffprobePath!, '-version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });
@@ -201,7 +204,7 @@ class ConfigManager {
 
     // Check yt-dlp (optional but warn)
     try {
-      const result = await runProcess([this.config.ytdlpPath!, '--version'], {
+      const result = await this.processRunner.run([this.config.ytdlpPath!, '--version'], {
         stdout: 'pipe',
         stderr: 'pipe'
       });

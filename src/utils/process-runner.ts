@@ -1,8 +1,9 @@
 /**
- * Shared process runner with stdout/stderr capture, timeouts, and truncation support.
+ * Process Runner Module
+ * Handles external process execution with timeouts, output capturing, and planning.
  */
 
-type ProcessStdio = 'pipe' | 'inherit' | 'ignore';
+export type ProcessStdio = 'pipe' | 'inherit' | 'ignore';
 
 export interface RunProcessOptions {
   cwd?: string;
@@ -26,6 +27,10 @@ export interface RunProcessResult {
     stdout: boolean;
     stderr: boolean;
   };
+}
+
+export interface ProcessRunner {
+  run(command: string[], options?: RunProcessOptions): Promise<RunProcessResult>;
 }
 
 type StreamResult = {
@@ -138,68 +143,67 @@ async function writeInput(
   }
 }
 
-export async function runProcess(
-  command: string[],
-  options: RunProcessOptions = {}
-): Promise<RunProcessResult> {
-  const {
-    cwd,
-    env,
-    stdin = 'pipe',
-    stdout = 'pipe',
-    stderr = 'pipe',
-    input,
-    timeoutMs,
-    maxOutputBytes,
-    onStdout,
-    onStderr
-  } = options;
+export class BunProcessRunner implements ProcessRunner {
+  async run(command: string[], options: RunProcessOptions = {}): Promise<RunProcessResult> {
+    const {
+      cwd,
+      env,
+      stdin = 'pipe',
+      stdout = 'pipe',
+      stderr = 'pipe',
+      input,
+      timeoutMs,
+      maxOutputBytes,
+      onStdout,
+      onStderr
+    } = options;
 
-  const proc = Bun.spawn(command, {
-    cwd,
-    env,
-    stdin,
-    stdout,
-    stderr
-  });
+    const proc = Bun.spawn(command, {
+      cwd,
+      env,
+      stdin,
+      stdout,
+      stderr
+    });
 
-  if (stdin === 'pipe') {
-    await writeInput(proc.stdin, input);
-  }
-
-  let timedOut = false;
-  const timeoutId = timeoutMs && timeoutMs > 0
-    ? setTimeout(() => {
-        timedOut = true;
-        try {
-          proc.kill();
-        } catch {
-          // Ignore kill errors; process may already be gone.
-        }
-      }, timeoutMs)
-    : undefined;
-
-  const stdoutPromise = consumeStream(proc.stdout, onStdout, maxOutputBytes);
-  const stderrPromise = consumeStream(proc.stderr, onStderr, maxOutputBytes);
-
-  const [stdoutResult, stderrResult, exitCode] = await Promise.all([
-    stdoutPromise,
-    stderrPromise,
-    proc.exited
-  ]);
-
-  if (timeoutId) {
-    clearTimeout(timeoutId);
-  }
-
-  return {
-    exitCode: typeof exitCode === 'number' ? exitCode : (proc.exitCode ?? -1),
-    stdout: stdoutResult.text,
-    stderr: stderrResult.text,
-    timedOut,
-    truncated: {
-      stdout: stdoutResult.truncated,
-      stderr: stderrResult.truncated
+    if (stdin === 'pipe') {
+      await writeInput(proc.stdin, input);
     }
-  };
+
+    let timedOut = false;
+    const timeoutId = timeoutMs && timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          try {
+            proc.kill();
+          } catch {
+            // Ignore kill errors; process may already be gone.
+          }
+        }, timeoutMs)
+      : undefined;
+
+    const stdoutPromise = consumeStream(proc.stdout, onStdout, maxOutputBytes);
+    const stderrPromise = consumeStream(proc.stderr, onStderr, maxOutputBytes);
+
+    const [stdoutResult, stderrResult, exitCode] = await Promise.all([
+      stdoutPromise,
+      stderrPromise,
+      proc.exited
+    ]);
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    return {
+      exitCode: typeof exitCode === 'number' ? exitCode : (proc.exitCode ?? -1),
+      stdout: stdoutResult.text,
+      stderr: stderrResult.text,
+      timedOut,
+      truncated: {
+        stdout: stdoutResult.truncated,
+        stderr: stderrResult.truncated
+      }
+    };
+  }
 }
