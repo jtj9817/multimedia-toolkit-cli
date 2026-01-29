@@ -32,6 +32,35 @@ export function createAppContext(options: AppContextOptions = {}): AppContext {
     homeDir: options.homeDir
   });
   const paths = { ...basePaths, ...options.paths };
+
+  // SAFETY CHECK: Test Isolation
+  // We strictly enforce isolation to prevent tests from touching the user's real data
+  if (process.env.NODE_ENV === 'test' || (typeof Bun !== 'undefined' && Bun.env.NODE_ENV === 'test')) {
+    const isMemoryDb = paths.dbPath === ':memory:';
+    
+    // Check if baseDir falls back to the default home directory
+    // We assume that if the user explicitly provided a baseDir in options, they know what they are doing
+    // BUT for tests we really want temp dirs.
+    // The safest check is: did we fall back to home-based paths without an explicit override?
+    const homeDir = options.homeDir || process.env.HOME || '';
+    const isHomeBased = paths.baseDir.startsWith(homeDir) && homeDir !== '';
+    
+    // We consider it "unsafe" if it's home-based AND the user didn't explicitely provide it in options
+    // Actually, even if they provided it, if it's HOME, it's bad for tests.
+    // So we just check if it matches the home path.
+    // However, we need to allow standard usage if someone really wants to test against real files (manual tests).
+    // But `bun test` should be isolated.
+    
+    // Refined check: If baseDir is effectively the default `~/.multimedia-toolkit`
+    if (!isMemoryDb) {
+       throw new Error('In-memory database required in tests. Pass paths: { dbPath: ":memory:" }');
+    }
+
+    if (isHomeBased && !options.baseDir) {
+       throw new Error('Context isolation required in tests. Provide a temp baseDir.');
+    }
+  }
+
   const clock = options.clock ?? systemClock;
 
   const db = createDatabaseManager({
