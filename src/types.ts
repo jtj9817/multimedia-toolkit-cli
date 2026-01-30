@@ -15,7 +15,13 @@ export type OutputFormat = typeof OUTPUT_FORMATS[number];
 export type VideoOutputFormat = typeof VIDEO_OUTPUT_FORMATS[number];
 export type ImageOutputFormat = typeof IMAGE_OUTPUT_FORMATS[number];
 
-export type VideoResolution = 'source' | '1080p' | '720p';
+export type VideoResolution =
+  | 'source'
+  | '2160p'
+  | '1440p'
+  | '1080p'
+  | '720p'
+  | '480p';
 export type VideoScalePolicy = 'fit' | 'stretch' | 'crop';
 export type VideoQualityMode = 'crf' | 'bitrate';
 

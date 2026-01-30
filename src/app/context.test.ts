@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from 'bun:test';
-import { existsSync, mkdtempSync, rmdirSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { createAppContext } from '@/app/context';
@@ -18,7 +18,7 @@ describe('createAppContext', () => {
     tempDirs.forEach(dir => {
       try {
         if (existsSync(dir)) {
-          rmdirSync(dir, { recursive: true });
+          rmSync(dir, { recursive: true, force: true });
         }
       } catch (e) {
         // ignore
@@ -39,12 +39,14 @@ describe('createAppContext', () => {
       }
     });
 
-    expect(app.paths.baseDir).toBe(baseDir);
-    expect(app.db.dbPath).toBe(':memory:');
-    // Ensure config uses the isolated path
-    expect(app.config.get('tempDir')).toBe(join(baseDir, 'temp'));
-    
-    app.db.close();
+    try {
+      expect(app.paths.baseDir).toBe(baseDir);
+      expect(app.db.dbPath).toBe(':memory:');
+      // Ensure config uses the isolated path
+      expect(app.config.get('tempDir')).toBe(join(baseDir, 'temp'));
+    } finally {
+      app.db.close();
+    }
   });
 
   test('THROWS if baseDir is not isolated (homedir) during tests', () => {

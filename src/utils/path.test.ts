@@ -1,9 +1,9 @@
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { buildTimestampedName, resolveOrganizedSubDir, sanitizeFileName } from './path';
 import { createAppContext } from '@/app/context';
 import type { Clock } from './clock';
 import { mkdtempSync, rmSync } from 'fs';
-import { join } from 'path';
+import { join, sep } from 'path';
 import { tmpdir } from 'os';
 
 class MockClock implements Clock {
@@ -14,29 +14,35 @@ class MockClock implements Clock {
 describe('Path Utilities (Refactored)', () => {
   const fixedTime = new Date('2023-01-01T12:00:00Z').getTime();
   const mockClock = new MockClock(fixedTime);
-  
-  const baseDir = mkdtempSync(join(tmpdir(), 'mat-path-utils-'));
-  const defaultOutputDir = join(baseDir, 'out');
+  let baseDir: string;
+  let defaultOutputDir: string;
+  let ctx: ReturnType<typeof createAppContext>;
 
-  // Create context with mock clock and in-memory DB/temp dirs to satisfy safety checks
-  const ctx = createAppContext({
-    clock: mockClock,
-    baseDir,
-    defaultOutputDir,
-    paths: {
-      dbPath: ':memory:',
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'mat-path-utils-'));
+    defaultOutputDir = join(baseDir, 'out');
+    ctx = createAppContext({
+      clock: mockClock,
       baseDir,
-      defaultOutputDir
-    }
+      defaultOutputDir,
+      paths: {
+        dbPath: ':memory:'
+      }
+    });
   });
 
   afterAll(() => {
+    ctx.db.close();
     rmSync(baseDir, { recursive: true, force: true });
   });
 
   describe('sanitizeFileName', () => {
     it('should sanitize unsafe characters', () => {
       expect(sanitizeFileName('file/with|unsafe?chars')).toBe('file_with_unsafe_chars');
+    });
+
+    it('should sanitize backslashes and colons', () => {
+      expect(sanitizeFileName('C:\\path\\to:file')).toBe('C_path_to_file');
     });
 
     it('should trim whitespace and underscores', () => {
@@ -126,6 +132,31 @@ describe('Path Utilities (Refactored)', () => {
             format: 'mp3'
         });
         expect(dir).toBe('mp3');
+    });
+
+    it('should build format/filename.ext style paths', () => {
+      const subDir = resolveOrganizedSubDir(ctx, {
+        autoOrganize: true,
+        organizeBy: 'format',
+        format: 'mp3'
+      });
+      const fileName = buildTimestampedName(ctx, 'My File', 'mp3');
+      const relPath = join(subDir, fileName);
+      expect(relPath.split(sep)[0]).toBe('mp3');
+      expect(relPath).toContain('.mp3');
+    });
+
+    it('should build source_name/filename.ext style paths', () => {
+      const subDir = resolveOrganizedSubDir(ctx, {
+        autoOrganize: true,
+        organizeBy: 'source',
+        format: 'mp3',
+        source: 'My Source'
+      });
+      const fileName = buildTimestampedName(ctx, 'clip', 'mp3');
+      const relPath = join(subDir, fileName);
+      expect(relPath.split(sep)[0]).toBe('My_Source');
+      expect(relPath).toContain('.mp3');
     });
 
     it('should return empty string for unknown organizeBy strategy', () => {

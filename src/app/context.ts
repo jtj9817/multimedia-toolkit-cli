@@ -11,6 +11,7 @@ import { Logger, OutputOrganizer } from '@/utils/logger';
 import { FzfSelector } from '@/utils/fzf';
 import { systemClock, type Clock } from '@/utils/clock';
 import { BunProcessRunner, type ProcessRunner } from '@/utils/process-runner';
+import { join } from 'path';
 
 export interface AppContext extends CommandContext {
   paths: AppPaths;
@@ -38,29 +39,37 @@ export function createAppContext(options: AppContextOptions = {}): AppContext {
 
   // SAFETY CHECK: Test Isolation
   // We strictly enforce isolation to prevent tests from touching the user's real data
-  if (process.env.NODE_ENV === 'test' || (typeof Bun !== 'undefined' && Bun.env.NODE_ENV === 'test')) {
-    const isMemoryDb = paths.dbPath === ':memory:';
-    
-    // Check if baseDir falls back to the default home directory
-    // We assume that if the user explicitly provided a baseDir in options, they know what they are doing
-    // BUT for tests we really want temp dirs.
-    // The safest check is: did we fall back to home-based paths without an explicit override?
-    const homeDir = options.homeDir || process.env.HOME || '';
-    const isHomeBased = paths.baseDir.startsWith(homeDir) && homeDir !== '';
-    
-    // We consider it "unsafe" if it's home-based AND the user didn't explicitely provide it in options
-    // Actually, even if they provided it, if it's HOME, it's bad for tests.
-    // So we just check if it matches the home path.
-    // However, we need to allow standard usage if someone really wants to test against real files (manual tests).
-    // But `bun test` should be isolated.
-    
-    // Refined check: If baseDir is effectively the default `~/.multimedia-toolkit`
-    if (!isMemoryDb) {
-       throw new Error('In-memory database required in tests. Pass paths: { dbPath: ":memory:" }');
+  const isTestEnv =
+    process.env.NODE_ENV === 'test' ||
+    process.env.BUN_TEST === '1' ||
+    (typeof Bun !== 'undefined' && Bun.env.NODE_ENV === 'test');
+
+  if (isTestEnv) {
+    const hasExplicitBaseDir = options.baseDir !== undefined || options.paths?.baseDir !== undefined;
+    const hasExplicitDefaultOutputDir =
+      options.defaultOutputDir !== undefined || options.paths?.defaultOutputDir !== undefined;
+
+    if (paths.dbPath !== ':memory:') {
+      throw new Error('In-memory database required in tests. Pass paths: { dbPath: ":memory:" }');
     }
 
-    if (isHomeBased && !options.baseDir) {
-       throw new Error('Context isolation required in tests. Provide a temp baseDir.');
+    if (!hasExplicitBaseDir || !hasExplicitDefaultOutputDir) {
+      throw new Error('Context isolation required in tests. Provide a temp baseDir and defaultOutputDir.');
+    }
+
+    const homeDir = options.homeDir ?? process.env.HOME ?? '';
+    if (homeDir) {
+      const toolkitBaseDir = join(homeDir, '.multimedia-toolkit');
+      const toolkitTestBaseDir = join(homeDir, '.multimedia-toolkit-test');
+      const defaultOutputFallback = join(homeDir, 'Music', 'AudioExtracted');
+
+      if (paths.baseDir === toolkitBaseDir || paths.baseDir === toolkitTestBaseDir) {
+        throw new Error('Context isolation required in tests. Do not use ~/.multimedia-toolkit paths.');
+      }
+
+      if (paths.defaultOutputDir === defaultOutputFallback) {
+        throw new Error('Context isolation required in tests. Do not write outputs to ~/Music/AudioExtracted.');
+      }
     }
   }
 

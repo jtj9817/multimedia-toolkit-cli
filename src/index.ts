@@ -110,7 +110,7 @@ ${'\x1b[33m'}OUTPUT OPTIONS:${'\x1b[0m'}
   -q, --quality <preset>  Quality preset: ${Object.keys(QUALITY_PRESETS).join(', ')}
   --video-format <fmt>    Video output format: webm, mp4, mkv
   --video-quality <val>   Video quality (CRF number or bitrate like 2500k)
-  --resolution <size>     Video resolution: source, 1080p, 720p
+  --resolution <size>     Video resolution: source, 2160p, 1440p, 1080p, 720p, 480p
   --video-preset <key>    Video preset: any-to-webm, any-to-mp4, any-to-mkv
 
 ${'\x1b[33m'}CLIPPING OPTIONS:${'\x1b[0m'}
@@ -267,7 +267,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
 
     let resolution = config.get('defaultVideoResolution');
     if (resolutionInput) {
-      if (!['source', '1080p', '720p'].includes(resolutionInput)) {
+      if (!['source', '2160p', '1440p', '1080p', '720p', '480p'].includes(resolutionInput)) {
         cli.error(`Unsupported resolution: ${resolutionInput}`);
         process.exit(1);
       }

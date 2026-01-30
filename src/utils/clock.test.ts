@@ -9,10 +9,8 @@ describe('clock', () => {
       expect(now).toBeGreaterThan(0);
     });
 
-    it('should return increasing values', async () => {
+    it('should return non-decreasing values', () => {
       const time1 = systemClock.now();
-      // Small wait to ensure clock moves
-      await new Promise(resolve => setTimeout(resolve, 2));
       const time2 = systemClock.now();
       expect(time2).toBeGreaterThanOrEqual(time1);
     });

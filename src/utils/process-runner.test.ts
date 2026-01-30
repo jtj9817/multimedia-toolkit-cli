@@ -28,7 +28,7 @@ describe('BunProcessRunner', () => {
 
   test('supports timeouts', async () => {
     const runner = new BunProcessRunner();
-    const result = await runner.run(['sleep', '0.2'], { timeoutMs: 50 });
+    const result = await runner.run(['sleep', '2'], { timeoutMs: 50 });
     
     expect(result.timedOut).toBe(true);
   });

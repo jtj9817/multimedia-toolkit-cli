@@ -3,14 +3,18 @@ import { createConfigManager } from './config';
 import { createDatabaseManager } from '@/db/database';
 import { resolveAppPaths } from '@/app/paths';
 import { join } from 'path';
-import { existsSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import type { AppPaths } from '@/app/paths';
+import type { DatabaseManager } from '@/db/database';
 
 describe('ConfigManager', () => {
-  const tempBaseDir = join(process.cwd(), 'temp-test-config');
-  let paths: any;
-  let db: any;
+  let tempBaseDir: string;
+  let paths: AppPaths;
+  let db: DatabaseManager;
 
   beforeEach(() => {
+    tempBaseDir = mkdtempSync(join(tmpdir(), 'mat-test-config-'));
     paths = resolveAppPaths({
       baseDir: tempBaseDir,
       defaultOutputDir: join(tempBaseDir, 'output')
@@ -22,6 +26,7 @@ describe('ConfigManager', () => {
   });
 
   afterEach(() => {
+    db.close();
     if (existsSync(tempBaseDir)) {
       rmSync(tempBaseDir, { recursive: true, force: true });
     }
@@ -34,7 +39,6 @@ describe('ConfigManager', () => {
 
   it('should load config from file', () => {
     if (!existsSync(paths.configDir)) {
-      const { mkdirSync } = require('fs');
       mkdirSync(paths.configDir, { recursive: true });
     }
     writeFileSync(paths.configFile, JSON.stringify({ defaultFormat: 'wav' }));
@@ -48,7 +52,7 @@ describe('ConfigManager', () => {
     config.set('defaultFormat', 'flac');
 
     // Check file
-    const fileContent = JSON.parse(require('fs').readFileSync(paths.configFile, 'utf-8'));
+    const fileContent = JSON.parse(readFileSync(paths.configFile, 'utf-8'));
     expect(fileContent.defaultFormat).toBe('flac');
 
     // Check DB
@@ -58,7 +62,6 @@ describe('ConfigManager', () => {
 
   it('should handle parse errors in config file gracefully', () => {
     if (!existsSync(paths.configDir)) {
-      const { mkdirSync } = require('fs');
       mkdirSync(paths.configDir, { recursive: true });
     }
     writeFileSync(paths.configFile, 'invalid json');

@@ -2,24 +2,29 @@ import { describe, expect, it, beforeEach, afterEach, spyOn } from 'bun:test';
 import { logAudioProcess, logVideoProcess, logGifWebpProcess } from './process-logging';
 import { createAppContext } from '@/app/context';
 import { join } from 'path';
-import { existsSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import type { AppContext } from '@/app/context';
 
 describe('process-logging', () => {
-  let ctx: any;
-  const tempBaseDir = join(process.cwd(), 'temp-test-process-logging');
-  const tempOutputDir = join(tempBaseDir, 'output');
+  let ctx: AppContext;
+  let tempBaseDir: string;
+  let tempOutputDir: string;
 
   beforeEach(() => {
+    tempBaseDir = mkdtempSync(join(tmpdir(), 'mat-test-process-logging-'));
+    tempOutputDir = join(tempBaseDir, 'output');
     ctx = createAppContext({
       baseDir: tempBaseDir,
+      defaultOutputDir: tempOutputDir,
       paths: {
-        dbPath: ':memory:',
-        defaultOutputDir: tempOutputDir
+        dbPath: ':memory:'
       }
     });
   });
 
   afterEach(() => {
+    ctx.db.close();
     if (existsSync(tempBaseDir)) {
       rmSync(tempBaseDir, { recursive: true, force: true });
     }
@@ -29,7 +34,7 @@ describe('process-logging', () => {
     const dbSpy = spyOn(ctx.db.processes, 'createProcess');
     const loggerSpy = spyOn(ctx.logger, 'logToFile').mockImplementation(() => {});
 
-    logAudioProcess(ctx, {
+    logAudioProcess({ db: ctx.db, logger: ctx.logger, clock: ctx.clock }, {
       jobId: 'audio-job',
       inputPath: 'test.mp3',
       outputPath: 'out.mp3',
@@ -50,7 +55,7 @@ describe('process-logging', () => {
     const dbSpy = spyOn(ctx.db.processes, 'createProcess');
     const loggerSpy = spyOn(ctx.logger, 'logToFile').mockImplementation(() => {});
 
-    logVideoProcess(ctx, {
+    logVideoProcess({ db: ctx.db, logger: ctx.logger, clock: ctx.clock }, {
       jobId: 'video-job',
       inputPath: 'test.mp4',
       outputPath: 'out.mp4',
@@ -72,7 +77,7 @@ describe('process-logging', () => {
     const dbSpy = spyOn(ctx.db.processes, 'createProcess');
     const loggerSpy = spyOn(ctx.logger, 'logToFile').mockImplementation(() => {});
 
-    logGifWebpProcess(ctx, {
+    logGifWebpProcess({ db: ctx.db, logger: ctx.logger, clock: ctx.clock }, {
       jobId: 'image-job',
       inputPath: 'test.mp4',
       outputPath: 'out.gif',

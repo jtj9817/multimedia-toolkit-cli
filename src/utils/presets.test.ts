@@ -2,30 +2,36 @@ import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import { PresetManager } from './presets';
 import { createAppContext } from '@/app/context';
 import { join } from 'path';
-import { existsSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import type { AppContext } from '@/app/context';
 
 describe('PresetManager', () => {
-  let ctx: any;
-  const tempBaseDir = join(process.cwd(), 'temp-test-presets');
+  let ctx: AppContext;
+  let tempBaseDir: string;
+  let tempOutputDir: string;
 
   beforeEach(() => {
+    tempBaseDir = mkdtempSync(join(tmpdir(), 'mat-test-presets-'));
+    tempOutputDir = join(tempBaseDir, 'output');
     ctx = createAppContext({
       baseDir: tempBaseDir,
+      defaultOutputDir: tempOutputDir,
       paths: {
-        dbPath: ':memory:',
-        baseDir: tempBaseDir
+        dbPath: ':memory:'
       }
     });
   });
 
   afterEach(() => {
+    ctx.db.close();
     if (existsSync(tempBaseDir)) {
       rmSync(tempBaseDir, { recursive: true, force: true });
     }
   });
 
   it('should save and get presets', () => {
-    const manager = new PresetManager(ctx);
+    const manager = new PresetManager({ db: ctx.db });
     const preset = {
       name: 'test-preset',
       clips: [{ startTime: '0:00', duration: 10 }]
@@ -41,7 +47,7 @@ describe('PresetManager', () => {
   });
 
   it('should find matching presets', () => {
-    const manager = new PresetManager(ctx);
+    const manager = new PresetManager({ db: ctx.db });
     manager.save({
       name: 'match',
       sourcePattern: 'audio',
@@ -57,7 +63,7 @@ describe('PresetManager', () => {
   });
 
   it('should delete presets', () => {
-    const manager = new PresetManager(ctx);
+    const manager = new PresetManager({ db: ctx.db });
     manager.save({
       name: 'to-delete',
       clips: [{ startTime: '0:00', duration: 5 }]

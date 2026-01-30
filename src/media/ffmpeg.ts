@@ -25,8 +25,11 @@ import type { ProcessRunner } from '@/utils/process-runner';
 
 const WEBM_OPUS_ARGS = ['-vbr', 'on', '-compression_level', '10', '-application', 'audio'];
 const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
+  '2160p': { width: 3840, height: 2160 },
+  '1440p': { width: 2560, height: 1440 },
   '1080p': { width: 1920, height: 1080 },
-  '720p': { width: 1280, height: 720 }
+  '720p': { width: 1280, height: 720 },
+  '480p': { width: 854, height: 480 }
 };
 
 export class FFmpegWrapper {

@@ -329,8 +329,11 @@ export class CLIInterface {
   async selectVideoResolution(defaultValue?: VideoResolution): Promise<VideoResolution> {
     const options: MenuOption[] = [
       { key: 'source', label: 'Source (no scaling)', action: async () => {} },
+      { key: '2160p', label: '2160p (4K)', action: async () => {} },
+      { key: '1440p', label: '1440p (2K)', action: async () => {} },
       { key: '1080p', label: '1080p', action: async () => {} },
-      { key: '720p', label: '720p', action: async () => {} }
+      { key: '720p', label: '720p', action: async () => {} },
+      { key: '480p', label: '480p', action: async () => {} }
     ];
 
     if (defaultValue) {

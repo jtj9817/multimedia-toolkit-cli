@@ -19,7 +19,7 @@ export interface DatabaseManagerOptions {
 }
 
 export class DatabaseManager {
-  private db!: Database;
+  private db: Database | null = null;
   readonly dbPath: string;
   readonly dataDir: string;
 
@@ -45,16 +45,23 @@ export class DatabaseManager {
       mkdirSync(this.dataDir, { recursive: true });
     }
 
-    this.db = new Database(this.dbPath);
-    this.db.run('PRAGMA journal_mode = WAL');
-    this.db.run('PRAGMA foreign_keys = ON');
-    applyMigrations(this.db);
+    const db = new Database(this.dbPath);
+    db.run('PRAGMA journal_mode = WAL');
+    db.run('PRAGMA foreign_keys = ON');
+    applyMigrations(db);
+    this.db = db;
 
-    this.processes = new ProcessHistoryRepository(this.db);
-    this.presets = new PresetRepository(this.db);
-    this.config = new ConfigRepository(this.db);
-    this.tags = new TagsRepository(this.db);
-    this.interrupted = new InterruptedOperationsRepository(this.db);
+    this.processes = new ProcessHistoryRepository(db);
+    this.presets = new PresetRepository(db);
+    this.config = new ConfigRepository(db);
+    this.tags = new TagsRepository(db);
+    this.interrupted = new InterruptedOperationsRepository(db);
+  }
+
+  private ensureInitialized(): void {
+    if (!this.db) {
+      this.init();
+    }
   }
 
   exportToJson(): string {
@@ -70,7 +77,8 @@ export class DatabaseManager {
   }
 
   close(): void {
-    this.db.close();
+    this.db?.close();
+    this.db = null;
   }
 }
 
