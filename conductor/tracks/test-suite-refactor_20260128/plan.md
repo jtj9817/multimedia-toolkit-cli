@@ -34,7 +34,7 @@ TASKS:
     - [x] Run manual `bun run test-fzf.ts` for interactive verification
 - [x] Task: Conductor - User Manual Verification 'Process Runner and FZF Logic Refactor' (Protocol in workflow.md)
 
-## Phase 4: Miscellaneous Utilities and Reliability Verification
+## Phase 4: Miscellaneous Utilities and Reliability Verification [checkpoint: 7aefbeb]
 GOAL: Complete the refactor of remaining utility modules and verify the overall reliability of the suite.
 
 TASKS:
