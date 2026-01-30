@@ -38,11 +38,11 @@ TASKS:
 GOAL: Complete the refactor of remaining utility modules and verify the overall reliability of the suite.
 
 TASKS:
-- [ ] Task: Refactor remaining utility modules for Dependency Injection
-    - [ ] Refactor `src/utils/clock.ts`, `src/utils/format.ts`, and `src/utils/logger.ts` to use injected context
-    - [ ] Refactor `src/utils/process-logging.ts`, `src/utils/visualizer.ts`, and `src/utils/presets.ts`
-    - [ ] Ensure tests mock `console.error` for expected error paths to avoid console noise
-- [ ] Task: Final System Reliability Verification
+- [x] Task: Refactor remaining utility modules for Dependency Injection 005f54b
+    - [x] Refactor `src/utils/clock.ts`, `src/utils/format.ts`, and `src/utils/logger.ts` to use injected context
+    - [x] Refactor `src/utils/process-logging.ts`, `src/utils/visualizer.ts`, and `src/utils/presets.ts`
+    - [x] Ensure tests mock `console.error` for expected error paths to avoid console noise
+- [~] Task: Final System Reliability Verification
     - [ ] Create a verification script to run the full suite (`bun test`) 10 times in parallel/sequence
     - [ ] Verify zero flakiness and deterministic behavior across all refactored modules
 - [ ] Task: Conductor - User Manual Verification 'Remaining Utilities and Reliability Verification' (Protocol in workflow.md)
