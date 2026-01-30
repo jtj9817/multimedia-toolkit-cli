@@ -6,11 +6,15 @@
 import type { DatabaseManager } from '@/db/database';
 import type { ClipPreset, TimeClip, OperationResult } from '@/types';
 
+export interface PresetDeps {
+  db: DatabaseManager;
+}
+
 export class PresetManager {
   private db: DatabaseManager;
 
-  constructor(options: { db: DatabaseManager }) {
-    this.db = options.db;
+  constructor(deps: PresetDeps) {
+    this.db = deps.db;
   }
 
   /**

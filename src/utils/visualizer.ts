@@ -4,14 +4,21 @@
  */
 
 import type { WaveformData } from '@/types';
+import type { Clock } from '@/utils/clock';
+
+export interface VisualizerDeps {
+  clock?: Clock;
+}
 
 export class WaveformVisualizer {
   private width: number;
   private height: number;
+  private clock?: Clock;
 
-  constructor(width: number = 60, height: number = 10) {
+  constructor(width: number = 60, height: number = 10, deps?: VisualizerDeps) {
     this.width = width;
     this.height = height;
+    this.clock = deps?.clock;
   }
 
   /**

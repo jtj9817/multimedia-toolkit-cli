@@ -4,6 +4,7 @@
 
 import type { DatabaseManager } from '@/db/database';
 import type { Logger } from '@/utils/logger';
+import type { Clock } from '@/utils/clock';
 import type {
   GifWebpPresetKey,
   ImageOutputFormat,
@@ -13,15 +14,14 @@ import type {
   VideoResolution
 } from '@/types';
 
-type LogDeps = {
+export type LogDeps = {
   db: DatabaseManager;
   logger: Logger;
-  now?: () => number;
+  clock: Clock;
 };
 
-function getTimestamp(now?: () => number): string {
-  const time = now ? now() : Date.now();
-  return new Date(time).toISOString();
+function getTimestamp(clock: Clock): string {
+  return new Date(clock.now()).toISOString();
 }
 
 function inferInputType(inputPath: string): 'url' | 'file' {
@@ -44,7 +44,7 @@ export function logAudioProcess(
     status: string;
   }
 ): void {
-  const createdAt = getTimestamp(deps.now);
+  const createdAt = getTimestamp(deps.clock);
   const inputType = inferInputType(record.inputPath);
 
   deps.db.processes.createProcess({
@@ -81,7 +81,7 @@ export function logVideoProcess(
     status: string;
   }
 ): void {
-  const createdAt = getTimestamp(deps.now);
+  const createdAt = getTimestamp(deps.clock);
   const inputType = inferInputType(record.inputPath);
 
   deps.db.processes.createProcess({
@@ -123,7 +123,7 @@ export function logGifWebpProcess(
     status: string;
   }
 ): void {
-  const createdAt = getTimestamp(deps.now);
+  const createdAt = getTimestamp(deps.clock);
   const inputType = inferInputType(record.inputPath);
 
   deps.db.processes.createProcess({

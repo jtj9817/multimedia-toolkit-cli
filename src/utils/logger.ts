@@ -29,10 +29,10 @@ const colors = {
   bgBlue: '\x1b[44m',
 };
 
-export interface LoggerOptions {
+export interface LoggerDeps {
   config: ConfigManager;
   db: DatabaseManager;
-  clock?: Clock;
+  clock: Clock;
 }
 
 export class Logger {
@@ -42,10 +42,10 @@ export class Logger {
   private logDir: string;
   private currentLogFile: string;
 
-  constructor(options: LoggerOptions) {
-    this.config = options.config;
-    this.db = options.db;
-    this.clock = options.clock ?? { now: () => Date.now() };
+  constructor(deps: LoggerDeps) {
+    this.config = deps.config;
+    this.db = deps.db;
+    this.clock = deps.clock;
     this.logDir = join(this.config.get('defaultOutputDir'), 'logs');
     this.ensureLogDir();
     this.currentLogFile = this.getLogFileName();
@@ -249,18 +249,18 @@ export class Logger {
   }
 }
 
-export interface OutputOrganizerOptions {
+export interface OutputOrganizerDeps {
   config: ConfigManager;
-  clock?: Clock;
+  clock: Clock;
 }
 
 export class OutputOrganizer {
   private config: ConfigManager;
   private clock: Clock;
 
-  constructor(options: OutputOrganizerOptions) {
-    this.config = options.config;
-    this.clock = options.clock ?? { now: () => Date.now() };
+  constructor(deps: OutputOrganizerDeps) {
+    this.config = deps.config;
+    this.clock = deps.clock;
   }
 
   /**

@@ -79,7 +79,7 @@ export function createAppContext(options: AppContextOptions = {}): AppContext {
   const cli = new CLIInterface({ fzf });
   const ffmpeg = new FFmpegWrapper({ config, processRunner });
   const downloader = new MediaDownloader({ config, processRunner });
-  const visualizer = new WaveformVisualizer();
+  const visualizer = new WaveformVisualizer(60, 10, { clock });
 
   return {
     paths,
