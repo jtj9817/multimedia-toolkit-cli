@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Reliability verification script
  * Runs the test suite multiple times to detect flakiness.
