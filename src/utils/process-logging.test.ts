@@ -7,13 +7,14 @@ import { existsSync, rmSync } from 'fs';
 describe('process-logging', () => {
   let ctx: any;
   const tempBaseDir = join(process.cwd(), 'temp-test-process-logging');
+  const tempOutputDir = join(tempBaseDir, 'output');
 
   beforeEach(() => {
     ctx = createAppContext({
       baseDir: tempBaseDir,
       paths: {
         dbPath: ':memory:',
-        baseDir: tempBaseDir
+        defaultOutputDir: tempOutputDir
       }
     });
   });
@@ -26,7 +27,7 @@ describe('process-logging', () => {
 
   it('should log audio process to DB and file', () => {
     const dbSpy = spyOn(ctx.db.processes, 'createProcess');
-    const loggerSpy = spyOn(ctx.logger, 'logToFile');
+    const loggerSpy = spyOn(ctx.logger, 'logToFile').mockImplementation(() => {});
 
     logAudioProcess(ctx, {
       jobId: 'audio-job',
@@ -47,7 +48,7 @@ describe('process-logging', () => {
 
   it('should log video process to DB and file', () => {
     const dbSpy = spyOn(ctx.db.processes, 'createProcess');
-    const loggerSpy = spyOn(ctx.logger, 'logToFile');
+    const loggerSpy = spyOn(ctx.logger, 'logToFile').mockImplementation(() => {});
 
     logVideoProcess(ctx, {
       jobId: 'video-job',
@@ -69,7 +70,7 @@ describe('process-logging', () => {
 
   it('should log GIF/WebP process to DB and file', () => {
     const dbSpy = spyOn(ctx.db.processes, 'createProcess');
-    const loggerSpy = spyOn(ctx.logger, 'logToFile');
+    const loggerSpy = spyOn(ctx.logger, 'logToFile').mockImplementation(() => {});
 
     logGifWebpProcess(ctx, {
       jobId: 'image-job',

@@ -7,13 +7,14 @@ import { existsSync, readFileSync, rmSync } from 'fs';
 describe('Logger', () => {
   let ctx: any;
   const tempBaseDir = join(process.cwd(), 'temp-test-logger');
+  const tempOutputDir = join(tempBaseDir, 'output');
 
   beforeEach(() => {
     ctx = createAppContext({
       baseDir: tempBaseDir,
       paths: {
         dbPath: ':memory:',
-        baseDir: tempBaseDir
+        defaultOutputDir: tempOutputDir
       }
     });
   });
@@ -70,13 +71,14 @@ describe('Logger', () => {
 describe('OutputOrganizer', () => {
   let ctx: any;
   const tempBaseDir = join(process.cwd(), 'temp-test-organizer');
+  const tempOutputDir = join(tempBaseDir, 'output');
 
   beforeEach(() => {
     ctx = createAppContext({
       baseDir: tempBaseDir,
       paths: {
         dbPath: ':memory:',
-        baseDir: tempBaseDir
+        defaultOutputDir: tempOutputDir
       }
     });
   });
