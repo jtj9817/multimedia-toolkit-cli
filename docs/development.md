@@ -100,11 +100,34 @@ multimedia-toolkit/
 ├── src/                    # Source code
 │   ├── index.ts           # Main entry point
 │   ├── types.ts           # Type definitions
+│   ├── app/               # Application context and paths
+│   │   ├── context.ts     # Dependency injection factory
+│   │   └── paths.ts       # Path resolution
 │   ├── cli/               # CLI interface modules
+│   │   ├── interface.ts   # Main CLI interface
+│   │   ├── commands/      # Command pattern implementation
+│   │   ├── menus/         # Menu system components
+│   │   └── dialogs/       # User interaction dialogs
 │   ├── config/            # Configuration management
 │   ├── db/                # Database operations
+│   │   ├── database.ts    # SQLite manager
+│   │   └── repositories/  # Repository pattern for DB ops
 │   ├── media/             # Media processing (FFmpeg, downloader)
 │   └── utils/             # Utility modules
+│       ├── fzf.ts         # FZF integration
+│       ├── logger.ts      # Logging
+│       ├── presets.ts     # Preset management
+│       ├── visualizer.ts  # Waveform visualization
+│       ├── clock.ts       # Time abstraction
+│       ├── process-runner.ts  # Process execution
+│       └── format.ts      # Formatting utilities
+├── tests/                 # Test files (mirrors src/ structure)
+│   ├── app/
+│   ├── cli/
+│   ├── config/
+│   ├── db/
+│   ├── media/
+│   └── utils/
 ├── dist/                  # Build output (generated)
 ├── docs/                  # Documentation
 ├── mat                    # Launcher script

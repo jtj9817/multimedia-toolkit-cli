@@ -348,12 +348,19 @@ multimedia-toolkit/
 ├── src/
 │   ├── index.ts          # Main entry point
 │   ├── types.ts          # TypeScript type definitions
+│   ├── app/
+│   │   ├── context.ts    # Application context factory (dependency injection)
+│   │   └── paths.ts      # Path resolution and validation
 │   ├── cli/
-│   │   └── interface.ts  # Interactive CLI module
+│   │   ├── interface.ts  # Interactive CLI module
+│   │   ├── commands/     # Command pattern implementation
+│   │   ├── menus/        # Menu system components
+│   │   └── dialogs/      # User interaction dialogs
 │   ├── config/
 │   │   └── config.ts     # Configuration management
 │   ├── db/
-│   │   └── database.ts   # SQLite database manager
+│   │   ├── database.ts   # SQLite database manager
+│   │   └── repositories/ # Repository pattern for DB operations
 │   ├── media/
 │   │   ├── ffmpeg.ts     # FFmpeg wrapper
 │   │   └── downloader.ts # URL downloader (yt-dlp)
@@ -361,7 +368,18 @@ multimedia-toolkit/
 │       ├── fzf.ts        # FZF integration
 │       ├── logger.ts     # Logging and output organization
 │       ├── presets.ts    # Clip preset management
-│       └── visualizer.ts # Waveform visualization
+│       ├── visualizer.ts # Waveform visualization
+│       ├── clock.ts      # Time abstraction for testing
+│       ├── process-runner.ts # Process execution abstraction
+│       ├── process-logging.ts # Process output logging
+│       └── format.ts     # Formatting utilities
+├── tests/                # Test files (mirrors src/ structure)
+│   ├── app/
+│   ├── cli/
+│   ├── config/
+│   ├── db/
+│   ├── media/
+│   └── utils/
 ├── docs/                 # Comprehensive documentation
 ├── dist/                 # Build output
 ├── mat                   # Launcher script

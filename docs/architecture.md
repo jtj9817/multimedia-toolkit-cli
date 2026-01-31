@@ -54,9 +54,11 @@ Technical documentation of Multimedia Toolkit's system design, module structure,
 
 1. **Modular Design**: Each component has a single responsibility
 2. **Separation of Concerns**: CLI, business logic, and I/O are separate
-3. **Context-Based DI**: Configuration and database are created via the app context to avoid import-time side effects
-4. **Async/Await**: All I/O operations are asynchronous
-5. **Type Safety**: Full TypeScript type coverage
+3. **Dependency Injection**: All components are created via `createAppContext()` factory to enable test isolation and avoid import-time side effects
+4. **Test Isolation**: Strict enforcement prevents tests from touching user data (enforces in-memory DB and temp directories)
+5. **Async/Await**: All I/O operations are asynchronous
+6. **Type Safety**: Full TypeScript type coverage
+7. **Deterministic Testing**: Time and process execution abstracted for reproducible tests
 
 ## Module Structure
 
@@ -67,14 +69,27 @@ src/
 ├── index.ts              # Main entry point, CLI argument parsing
 ├── types.ts              # TypeScript type definitions
 │
+├── app/
+│   ├── context.ts        # Application context factory (DI)
+│   └── paths.ts          # Path resolution and validation
+│
 ├── cli/
-│   └── interface.ts      # Interactive CLI, menus, prompts
+│   ├── interface.ts      # Interactive CLI, menus, prompts
+│   ├── commands/         # Command pattern implementation
+│   ├── menus/            # Menu system components
+│   └── dialogs/          # User interaction dialogs
 │
 ├── config/
 │   └── config.ts         # Configuration management
 │
 ├── db/
-│   └── database.ts       # SQLite database operations
+│   ├── database.ts       # SQLite database operations
+│   └── repositories/     # Repository pattern for DB operations
+│       ├── process-history.ts
+│       ├── presets.ts
+│       ├── config.ts
+│       ├── tags.ts
+│       └── interrupted-operations.ts
 │
 ├── media/
 │   ├── ffmpeg.ts         # FFmpeg wrapper and operations
@@ -84,7 +99,11 @@ src/
     ├── fzf.ts            # FZF integration for file selection
     ├── logger.ts         # Logging and output organization
     ├── presets.ts        # Clip preset management
-    └── visualizer.ts     # Waveform visualization
+    ├── visualizer.ts     # Waveform visualization
+    ├── clock.ts          # Time abstraction for testing
+    ├── process-runner.ts # Process execution abstraction
+    ├── process-logging.ts # Process output logging
+    └── format.ts         # Formatting utilities
 ```
 
 ## Core Components
@@ -136,7 +155,7 @@ class CLIInterface {
 }
 ```
 
-**Pattern**: Singleton exported as `cli`
+**Pattern**: Instantiated via dependency injection in `createAppContext()` as `app.cli`
 
 ### 3. FFmpeg Wrapper (`media/ffmpeg.ts`)
 
@@ -380,28 +399,84 @@ User Selection
 
 ## Design Patterns
 
-### 1. Singleton Pattern
+### 1. Factory Pattern with Dependency Injection
 
-**Used in**: Config, Database, Logger, CLI Interface
+**Used in**: Application context creation
 
-**Rationale**: Single source of truth for shared state
+**Rationale**: Enables test isolation, prevents import-time side effects, and allows for dependency substitution
 
 ```typescript
-class ConfigManager {
-  private static instance: ConfigManager | null = null;
+// Factory function creates isolated application context
+export function createAppContext(options: AppContextOptions = {}): AppContext {
+  const paths = resolveAppPaths({
+    baseDir: options.baseDir,
+    defaultOutputDir: options.defaultOutputDir,
+    env: options.env,
+    homeDir: options.homeDir
+  });
 
-  static getInstance(): ConfigManager {
-    if (!ConfigManager.instance) {
-      ConfigManager.instance = new ConfigManager();
+  // Test isolation safety checks
+  if (isTestEnv) {
+    if (paths.dbPath !== ':memory:') {
+      throw new Error('In-memory database required in tests');
     }
-    return ConfigManager.instance;
+    // Additional safety checks...
   }
-}
 
-export const config = ConfigManager.getInstance();
+  // Inject dependencies
+  const clock = options.clock ?? systemClock;
+  const processRunner = options.processRunner ?? new BunProcessRunner();
+  const db = createDatabaseManager({ dbPath: paths.dbPath, dataDir: paths.baseDir });
+  const config = createConfigManager({ paths, db });
+  const logger = new Logger({ config, db, clock });
+  const ffmpeg = new FFmpegWrapper({ config, processRunner });
+
+  return { paths, clock, config, db, logger, ffmpeg, /* ... */ };
+}
 ```
 
-### 2. Result Pattern
+**Benefits**:
+- Test isolation: Tests cannot touch user's home directory
+- Deterministic: Inject `clock` for time-dependent tests
+- Flexible: Swap implementations (e.g., mock `processRunner`)
+
+**Usage**:
+```typescript
+// Production
+const app = createAppContext();
+
+// Tests
+const app = createAppContext({
+  baseDir: tempDir,
+  defaultOutputDir: outputDir,
+  paths: { dbPath: ':memory:' },
+  clock: mockClock
+});
+```
+
+### 2. Repository Pattern
+
+**Used in**: Database operations
+
+**Rationale**: Encapsulate data access logic, provide clean API for database operations
+
+```typescript
+export class ProcessHistoryRepository {
+  constructor(private db: DatabaseManager) {}
+
+  create(record: ConversionJob): ConversionJob {
+    const stmt = this.db.prepare('INSERT INTO process_records ...');
+    return stmt.get(...) as ConversionJob;
+  }
+
+  findById(id: string): ConversionJob | undefined {
+    const stmt = this.db.prepare('SELECT * FROM process_records WHERE id = ?');
+    return stmt.get(id) as ConversionJob | undefined;
+  }
+}
+```
+
+### 3. Result Pattern
 
 **Used in**: All modules for error handling
 
