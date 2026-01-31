@@ -9,7 +9,7 @@
     "dev": "bun --watch run src/index.ts",
     "build": "bun build src/index.ts --outdir ./dist --target bun",
     "test": "bun test",
-    "lint": "oxlint src test-fzf.ts"
+    "lint": "oxlint src tests test-fzf.ts"
   },
   "keywords": [
     "audio",

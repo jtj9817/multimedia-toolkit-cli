@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { systemClock } from './clock';
+import { systemClock } from '@/utils/clock';
 
 describe('clock', () => {
   describe('systemClock', () => {

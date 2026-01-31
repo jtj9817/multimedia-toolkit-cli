@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, spyOn } from 'bun:test';
-import { logAudioProcess, logVideoProcess, logGifWebpProcess } from './process-logging';
+import { logAudioProcess, logVideoProcess, logGifWebpProcess } from '@/utils/process-logging';
 import { createAppContext } from '@/app/context';
 import { join } from 'path';
 import { existsSync, mkdtempSync, rmSync } from 'fs';

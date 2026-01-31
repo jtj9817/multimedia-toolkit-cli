@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { PresetManager } from './presets';
+import { PresetManager } from '@/utils/presets';
 import { createAppContext } from '@/app/context';
 import { join } from 'path';
 import { existsSync, mkdtempSync, rmSync } from 'fs';

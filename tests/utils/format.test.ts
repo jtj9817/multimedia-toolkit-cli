@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { formatBytes } from './format';
+import { formatBytes } from '@/utils/format';
 
 describe('format', () => {
   describe('formatBytes', () => {

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { buildTimestampedName, resolveOrganizedSubDir, sanitizeFileName } from './path';
+import { buildTimestampedName, resolveOrganizedSubDir, sanitizeFileName } from '@/utils/path';
 import { createAppContext } from '@/app/context';
-import type { Clock } from './clock';
+import type { Clock } from '@/utils/clock';
 import { mkdtempSync, rmSync } from 'fs';
 import { join, sep } from 'path';
 import { tmpdir } from 'os';

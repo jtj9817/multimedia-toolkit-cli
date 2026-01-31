@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, spyOn } from 'bun:test';
-import { createConfigManager } from './config';
+import { createConfigManager } from '@/config/config';
 import { createDatabaseManager } from '@/db/database';
 import { resolveAppPaths } from '@/app/paths';
 import { join } from 'path';

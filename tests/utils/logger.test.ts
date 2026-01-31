@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, spyOn } from 'bun:test';
-import { Logger, OutputOrganizer } from './logger';
+import { Logger, OutputOrganizer } from '@/utils/logger';
 import { createAppContext } from '@/app/context';
 import { join } from 'path';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';

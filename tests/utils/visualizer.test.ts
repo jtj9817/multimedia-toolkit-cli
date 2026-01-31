@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { WaveformVisualizer } from './visualizer';
+import { WaveformVisualizer } from '@/utils/visualizer';
 
 describe('WaveformVisualizer', () => {
   const mockData = {
