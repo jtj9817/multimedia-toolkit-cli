@@ -19,7 +19,7 @@ This document outlines the testing strategy for the Multimedia Toolkit. As the p
 
 ## 🏗️ Test Pyramid & Organization
 
-We categorize tests into three layers. Tests are co-located with the source code they test (e.g., `src/utils/path.ts` -> `src/utils/path.test.ts`).
+We categorize tests into three layers. Tests are organized in a root-level `tests/` directory that mirrors the `src/` directory structure (e.g., `src/utils/path.ts` -> `tests/utils/path.test.ts`).
 
 ### 1. Unit Tests (Logic & Wiring)
 *Focus: Pure functions, command builders, configuration logic, and context wiring.*
@@ -156,11 +156,15 @@ To enable Continuous Integration (CI), we need to ensure the environment has the
 
 | Component | Source File | Test File |
 |-----------|-------------|-----------|
-| **Context** | `src/app/context.ts` | `src/app/context.test.ts` |
-| **Process Runner** | `src/utils/process-runner.ts` | `src/utils/process-runner.test.ts` |
-| **FZF Utils** | `src/utils/fzf.ts` | `src/utils/fzf.test.ts` |
-| **Paths/Org** | `src/utils/path.ts` | `src/utils/path.test.ts` |
-| **Database** | `src/db/database.ts` | `src/db/database.test.ts` |
+| **Context** | `src/app/context.ts` | `tests/app/context.test.ts` |
+| **Process Runner** | `src/utils/process-runner.ts` | `tests/utils/process-runner.test.ts` |
+| **FZF Utils** | `src/utils/fzf.ts` | `tests/utils/fzf.test.ts` |
+| **Paths/Org** | `src/utils/path.ts` | `tests/utils/path.test.ts` |
+| **Database** | `src/db/database.ts` | `tests/db/database.test.ts` |
+| **FFmpeg** | `src/media/ffmpeg.ts` | `tests/media/ffmpeg.test.ts` |
+| **Config** | `src/config/config.ts` | `tests/config/config.test.ts` |
+| **Logger** | `src/utils/logger.ts` | `tests/utils/logger.test.ts` |
+| **Presets** | `src/utils/presets.ts` | `tests/utils/presets.test.ts` |
 
 ## 📋 Proposed Test Coverage Expansion
 
