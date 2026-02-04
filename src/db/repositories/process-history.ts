@@ -3,7 +3,7 @@
  */
 
 import type { Database } from 'bun:sqlite';
-import type { ProcessRecord } from '@/types';
+import type { ProcessRecord, VideoPresetKey, VideoResolution, VideoOutputFormat } from '@/types';
 
 type ProcessStats = {
   total: number;
@@ -138,9 +138,9 @@ export class ProcessHistoryRepository {
       outputPath: row.output_path as string,
       outputFormat: row.output_format as string,
       qualityPreset: row.quality_preset as string,
-      videoPreset: (row.video_preset as string | null) ?? undefined,
-      videoResolution: (row.video_resolution as string | null) ?? undefined,
-      videoOutputFormat: (row.video_output_format as string | null) ?? undefined,
+      videoPreset: ((row.video_preset as string | null) ?? undefined) as VideoPresetKey | undefined,
+      videoResolution: ((row.video_resolution as string | null) ?? undefined) as VideoResolution | undefined,
+      videoOutputFormat: ((row.video_output_format as string | null) ?? undefined) as VideoOutputFormat | undefined,
       clipsJson: (row.clips_json as string | null) ?? undefined,
       status: row.status as string,
       duration: (row.duration as number | null) ?? undefined,

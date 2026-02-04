@@ -108,7 +108,7 @@ async function runExtractAudio(ctx: CommandContext): Promise<void> {
         if (realResult.success) {
           ctx.cli.success(`Audio saved: ${realResult.data!.outputPath}`);
           logAudioProcess(
-            { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+            { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
             {
               jobId,
               inputPath,
@@ -122,7 +122,7 @@ async function runExtractAudio(ctx: CommandContext): Promise<void> {
       }
     } else {
       logAudioProcess(
-        { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+        { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
         {
           jobId,
           inputPath,
@@ -222,7 +222,7 @@ async function runClipAudio(ctx: CommandContext): Promise<void> {
     }
 
     logAudioProcess(
-      { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+      { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
       {
         jobId,
         inputPath,
@@ -300,7 +300,7 @@ async function runUrlDownload(ctx: CommandContext): Promise<void> {
   }
 
   logAudioProcess(
-    { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+    { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
     {
       jobId,
       inputPath: url,
@@ -330,7 +330,7 @@ async function runBatchProcess(ctx: CommandContext): Promise<void> {
     const extensions = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'mp3', 'wav', 'flac'];
     const files: string[] = [];
 
-    for await (const entry of Bun.glob(`*.{${extensions.join(',')}}`).scan(inputDir)) {
+    for await (const entry of new Bun.Glob(`*.{${extensions.join(',')}}`).scan(inputDir)) {
       files.push(join(inputDir, entry));
     }
 
@@ -377,7 +377,7 @@ async function runBatchProcess(ctx: CommandContext): Promise<void> {
     if (result.success) {
       completed++;
       logAudioProcess(
-        { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+        { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
         {
           jobId: randomUUID(),
           inputPath: file,
@@ -547,7 +547,7 @@ async function runVideoTranscode(ctx: CommandContext): Promise<void> {
   if (result.success) {
     ctx.cli.success(`Created: ${result.data!.outputPath}`);
     logVideoProcess(
-      { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+      { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
       {
         jobId: randomUUID(),
         inputPath,
@@ -637,7 +637,7 @@ async function runGifWebpConvert(ctx: CommandContext): Promise<void> {
         if (realResult.success) {
           ctx.cli.success(`Saved: ${realResult.data!.outputPath}`);
           logGifWebpProcess(
-            { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+            { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
             {
               jobId,
               inputPath,
@@ -653,7 +653,7 @@ async function runGifWebpConvert(ctx: CommandContext): Promise<void> {
       }
     } else {
       logGifWebpProcess(
-        { db: ctx.db, logger: ctx.logger, now: ctx.clock.now },
+        { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
         {
           jobId,
           inputPath,

@@ -220,7 +220,7 @@ async function runInteractiveMode(app: AppContext): Promise<void> {
 // ==================== CLI Mode Handlers ====================
 
 async function runCliMode(app: AppContext, values: Record<string, unknown>, positionals: string[]): Promise<void> {
-  const { cli, logger, config, ffmpeg, downloader, presets, organizer, visualizer, db } = app;
+  const { cli, logger, config, ffmpeg, downloader, presets, organizer, visualizer, db, clock } = app;
   // Collect input files
   const inputs: string[] = [
     ...(values.input as string[] || []),
@@ -332,7 +332,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
         } else {
           logger.success(`Created: ${result.data!.outputPath}`);
           logVideoProcess(
-            { db, logger },
+            { db, logger, clock },
             {
               jobId: randomUUID(),
               inputPath: input,
@@ -474,7 +474,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
       } else {
         logger.success(`Created: ${result.data!.outputPath}`);
         logAudioProcess(
-          { db, logger },
+          { db, logger, clock },
           {
             jobId: randomUUID(),
             inputPath: input,

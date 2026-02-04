@@ -44,7 +44,7 @@ describe('MediaDownloader', () => {
     expect(result.data?.title).toBe('Test Video');
     
     expect(mockRun).toHaveBeenCalled();
-    const lastCall = mockRun.mock.calls[mockRun.mock.calls.length - 1];
+    const lastCall = mockRun.mock.calls[mockRun.mock.calls.length - 1] as unknown[];
     const args = lastCall[0] as string[];
     expect(args).toContain('yt-dlp');
     expect(args).toContain('--dump-json');

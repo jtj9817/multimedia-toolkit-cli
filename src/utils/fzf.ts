@@ -45,8 +45,9 @@ export interface FzfOptions {
   maxDepth?: number;
 }
 
-export type FzfShellOptions = Required<Omit<FzfOptions, 'directory'>> & {
+export type FzfShellOptions = Required<Omit<FzfOptions, 'directory' | 'maxDepth'>> & {
   directory: string;
+  maxDepth?: number;
 };
 
 /**
@@ -306,7 +307,7 @@ export class FzfSelector {
    */
   private async runFzf(
     directory: string,
-    options: Required<Omit<FzfOptions, 'directory'>>
+    options: Omit<FzfShellOptions, 'directory'>
   ): Promise<string[]> {
     const shellCmd = buildFzfShellCommand({ directory, ...options });
     const previewRoot = resolve(directory);
@@ -341,7 +342,7 @@ export class FzfSelector {
     const result = await this.selectFiles({ ...options, multi: false });
 
     if (!result.success) {
-      return result;
+      return { success: false, error: result.error };
     }
 
     return {

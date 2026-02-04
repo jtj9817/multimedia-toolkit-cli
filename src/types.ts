@@ -200,7 +200,7 @@ export interface ClipPreset {
 }
 
 // Input source types
-export type InputSourceType = 'file' | 'url' | 'youtube' | 'stream';
+export type InputSourceType = 'file' | 'url' | 'youtube' | 'stream' | 'direct';
 
 export interface InputSource {
   type: InputSourceType;
