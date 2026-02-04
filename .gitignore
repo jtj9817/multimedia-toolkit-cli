@@ -24,7 +24,6 @@ Thumbs.db
 .idea/
 
 # Bun
-bun.lock
 
 AGENTS.md 
 CLAUDE.md
