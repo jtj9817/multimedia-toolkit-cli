@@ -45,6 +45,7 @@ Multimedia Toolkit is a powerful command-line tool for extracting and converting
 ### Output Options
 - **Audio Formats**: MP3, AAC, OGG, OPUS, WEBM, FLAC, WAV
 - **Video Formats**: WebM, MP4, MKV
+- **Video clipping**: Keep source streams or clip first and transcode to MP4, WebM, or MKV
 - **Image Formats**: GIF, WebP (animated)
 - **Quality presets**: Speech, Music (low/medium/high), Optimized WEBM, Lossless
 - Configurable bitrate/quality per format
@@ -185,15 +186,16 @@ Main Menu
 
   [1] Extract Audio - Convert video/audio to audio format
   [2] Clip Audio - Extract specific time segments
-  [3] Download & Extract - Download from URL and extract audio
-  [4] Batch Process - Process multiple files
-  [5] Extract Chapters - Split by metadata chapters
-  [6] Split by Silence - Auto-split at silent points
-  [7] Transcode Video - Convert video to WebM/MP4/MKV
-  [8] Convert to GIF/WebP - Create animated GIFs or WebP images
-  [9] Manage Presets - Save/load clip time presets
-  [10] View History - See recent conversions
-  [11] Settings - Configure default options
+  [3] Clip Video - Create source-format or transcoded video clips
+  [4] Download & Extract - Download from URL and extract audio
+  [5] Batch Process - Process multiple files
+  [6] Extract Chapters - Split by metadata chapters
+  [7] Split by Silence - Auto-split at silent points
+  [8] Transcode Video - Convert video to WebM/MP4/MKV
+  [9] Convert to GIF/WebP - Create animated GIFs or WebP images
+  [10] Manage Presets - Save/load clip time presets
+  [11] View History - See recent conversions
+  [12] Settings - Configure default options
   [0] Exit - Quit the program
 ```
 
@@ -467,6 +469,18 @@ bun run src/index.ts -i video.mp4 --video-format webm --video-preset any-to-webm
 ```bash
 bun run src/index.ts -i video.mp4 --gif-webp-preset gif-discord -o output.gif
 ```
+
+### Create Video Clips
+```bash
+# Keep source streams (fast/lossless; cuts can align to a nearby keyframe)
+bun run src/index.ts -i video.mp4 --video-clip 90:150 -o ./clips
+
+# Clip first, then transcode the verified clip
+bun run src/index.ts -i video.mp4 --video-clip 90:150 --video-format webm -o ./clips
+```
+
+Repeat `--video-clip` for multiple ranges. Generated names include
+`_CLIP_YYYYMMDD-HHmmss`; empty or unreadable output files are deleted.
 
 ### Create High-Quality WebP Animation
 ```bash

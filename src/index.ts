@@ -12,18 +12,19 @@
  */
 
 import { parseArgs } from 'util';
-import { existsSync, statSync } from 'fs';
-import { basename } from 'path';
+import { existsSync, mkdirSync, statSync } from 'fs';
+import { basename, extname, join } from 'path';
 import { randomUUID } from 'crypto';
 
 import { createAppContext, type AppContext } from '@/app/context';
 import { createInteractiveCommands } from '@/cli/commands/interactive-commands';
 import { showHistory } from '@/cli/history';
-import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoOutputFormat, VideoResolution, VideoQualityMode } from './types';
+import type { TimeClip, OutputFormat, MenuOption, VideoPresetKey, VideoResolution, VideoQualityMode } from './types';
 import { QUALITY_PRESETS, OUTPUT_FORMATS } from './types';
 import { VIDEO_TRANSCODE_PRESETS } from './media/video-presets';
 import { formatBytes } from '@/utils/format';
 import { logAudioProcess, logVideoProcess } from '@/utils/process-logging';
+import { buildVideoClipName } from '@/utils/path';
 
 const VERSION = '1.0.0';
 let appContext: AppContext | null = null;
@@ -52,6 +53,7 @@ function parseArguments() {
       duration: { type: 'string', short: 'd' },
       end: { type: 'string', short: 'e' },
       preset: { type: 'string', short: 'p' },
+      'video-clip': { type: 'string', multiple: true },
 
       // Features
       chapters: { type: 'boolean' },
@@ -118,6 +120,7 @@ ${'\x1b[33m'}CLIPPING OPTIONS:${'\x1b[0m'}
   -d, --duration <sec>    Duration in seconds
   -e, --end <time>        End time (alternative to duration)
   -p, --preset <name>     Use a saved clip preset
+  --video-clip <start:end> Create a video clip; repeat for multiple ranges
 
 ${'\x1b[33m'}FEATURES:${'\x1b[0m'}
   --chapters              Extract chapters as separate files
@@ -163,6 +166,12 @@ ${'\x1b[33m'}EXAMPLES:${'\x1b[0m'}
 
   # Extract all chapters
   multimedia-toolkit -i podcast.mp4 --chapters -o ./chapters/
+
+  # Keep source video streams (keyframe-aligned boundaries)
+  multimedia-toolkit -i video.mp4 --video-clip 90:150 -o ./clips
+
+  # Clip first, then transcode to WebM
+  multimedia-toolkit -i video.mp4 --video-clip 90:150 --video-format webm -o ./clips
 
 For more information, visit: https://github.com/your-repo/multimedia-toolkit
 `);
@@ -219,6 +228,43 @@ async function runInteractiveMode(app: AppContext): Promise<void> {
 
 // ==================== CLI Mode Handlers ====================
 
+function isCliTime(value: string): boolean {
+  return /^\d+(?:\.\d+)?$/.test(value) || /^(\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?$/.test(value);
+}
+
+function parseVideoClipRange(value: string): TimeClip | undefined {
+  const parts = value.split(':');
+  const candidates: Array<{ startTime: string; endTime: string; imbalance: number; split: number }> = [];
+  for (let split = 1; split < parts.length; split++) {
+    const startTime = parts.slice(0, split).join(':');
+    const endTime = parts.slice(split).join(':');
+    if (isCliTime(startTime) && isCliTime(endTime)) {
+      candidates.push({
+        startTime,
+        endTime,
+        imbalance: Math.abs(split - (parts.length - split)),
+        split
+      });
+    }
+  }
+  candidates.sort((a, b) => a.imbalance - b.imbalance || a.split - b.split);
+  return candidates[0] ? { startTime: candidates[0].startTime, endTime: candidates[0].endTime } : undefined;
+}
+
+function buildCliTimeClip(values: Record<string, unknown>): TimeClip | undefined {
+  const startTime = values.start as string | undefined;
+  const endTime = values.end as string | undefined;
+  const durationText = values.duration as string | undefined;
+  if (!startTime || !isCliTime(startTime) || Boolean(endTime) === Boolean(durationText)) {
+    return undefined;
+  }
+  if (endTime) {
+    return isCliTime(endTime) ? { startTime, endTime } : undefined;
+  }
+  const duration = Number(durationText);
+  return Number.isFinite(duration) && duration > 0 ? { startTime, duration } : undefined;
+}
+
 async function runCliMode(app: AppContext, values: Record<string, unknown>, positionals: string[]): Promise<void> {
   const { cli, logger, config, ffmpeg, downloader, presets, organizer, visualizer, db, clock } = app;
   // Collect input files
@@ -240,6 +286,131 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
   const videoQualityInput = values['video-quality'] as string | undefined;
   const resolutionInput = values.resolution as string | undefined;
   const isVideoTranscode = Boolean(videoPresetInput || videoFormatInput || videoQualityInput || resolutionInput);
+  const videoClipValues = (values['video-clip'] as string[] | undefined) || [];
+  const hasTimingShorthand = Boolean(values.start || values.end || values.duration);
+  const isVideoClip = videoClipValues.length > 0 || (isVideoTranscode && hasTimingShorthand);
+
+  if (isVideoClip) {
+    if (urls.length > 0) {
+      cli.error('Video clipping does not support URL inputs yet.');
+      process.exit(1);
+    }
+    if (videoClipValues.length > 0 && hasTimingShorthand) {
+      cli.error('Use either repeated --video-clip ranges or --start with --end/--duration, not both.');
+      process.exit(1);
+    }
+
+    const clips = videoClipValues.length > 0
+      ? videoClipValues.map(parseVideoClipRange)
+      : [buildCliTimeClip(values)];
+    const validClips = clips.filter((clip): clip is TimeClip => clip !== undefined);
+    if (validClips.length !== clips.length) {
+      cli.error('Each video clip must specify a valid start and end time.');
+      process.exit(1);
+    }
+
+    let presetKey: VideoPresetKey = config.get('defaultVideoPreset');
+    if (videoPresetInput) {
+      if (!VIDEO_TRANSCODE_PRESETS[videoPresetInput as VideoPresetKey]) {
+        cli.error(`Unknown video preset: ${videoPresetInput}`);
+        process.exit(1);
+      }
+      presetKey = videoPresetInput as VideoPresetKey;
+    } else if (videoFormatInput) {
+      const formatKey = videoFormatInput.toLowerCase();
+      if (formatKey === 'webm') presetKey = 'any-to-webm';
+      else if (formatKey === 'mp4') presetKey = 'any-to-mp4';
+      else if (formatKey === 'mkv') presetKey = 'any-to-mkv';
+      else {
+        cli.error(`Unsupported video format: ${videoFormatInput}`);
+        process.exit(1);
+      }
+    }
+
+    let resolution = config.get('defaultVideoResolution');
+    if (resolutionInput) {
+      if (!['source', '2160p', '1440p', '1080p', '720p', '480p'].includes(resolutionInput)) {
+        cli.error(`Unsupported resolution: ${resolutionInput}`);
+        process.exit(1);
+      }
+      resolution = resolutionInput as VideoResolution;
+    }
+
+    let qualityMode: VideoQualityMode | undefined;
+    let crf: number | undefined;
+    let bitrate: string | undefined;
+    if (videoQualityInput) {
+      const parsedCrf = Number(videoQualityInput);
+      if (!Number.isNaN(parsedCrf) && Number.isFinite(parsedCrf)) {
+        qualityMode = 'crf';
+        crf = parsedCrf;
+      } else if (/^\d+(k|m)$/i.test(videoQualityInput)) {
+        qualityMode = 'bitrate';
+        bitrate = videoQualityInput;
+      } else {
+        cli.error('Video quality must be a CRF number or a bitrate like 2500k.');
+        process.exit(1);
+      }
+    }
+
+    const transcodeRequested = Boolean(videoPresetInput || videoFormatInput || videoQualityInput || resolutionInput);
+    const outputDir = values.output as string || config.getOutputDir();
+    if (existsSync(outputDir) && !statSync(outputDir).isDirectory()) {
+      cli.error('Video clip output must be a directory so generated clip names can be preserved.');
+      process.exit(1);
+    }
+    mkdirSync(outputDir, { recursive: true });
+    const dryRun = values['dry-run'] as boolean || false;
+    const preserveMetadata = !(values['strip-metadata'] as boolean);
+
+    for (const input of inputs) {
+      if (!existsSync(input)) {
+        logger.error(`File not found: ${input}`);
+        continue;
+      }
+      const sourceExtension = extname(input).slice(1).toLowerCase();
+      if (!sourceExtension) {
+        logger.error(`Cannot determine source container for ${input}`);
+        continue;
+      }
+      const targetFormat = transcodeRequested ? VIDEO_TRANSCODE_PRESETS[presetKey].container : sourceExtension;
+      for (let index = 0; index < validClips.length; index++) {
+        const outputPath = join(outputDir, buildVideoClipName(
+          { clock }, basename(input).replace(/\.[^.]+$/, ''), targetFormat, index + 1
+        ));
+        const intermediatePath = transcodeRequested
+          ? join(outputDir, `.${buildVideoClipName(
+            { clock }, basename(input).replace(/\.[^.]+$/, ''), sourceExtension, index + 1
+          ).replace(new RegExp(`\\.${sourceExtension}$`, 'i'), '')}.intermediate.${sourceExtension}`)
+          : outputPath;
+
+        const result = transcodeRequested
+          ? await ffmpeg.clipAndTranscodeVideo(input, intermediatePath, outputPath, {
+              clip: validClips[index],
+              preserveMetadata,
+              dryRun,
+              transcode: { presetKey, resolution, qualityMode, crf, bitrate, preserveMetadata, dryRun }
+            })
+          : await ffmpeg.clipVideo(input, outputPath, { clip: validClips[index], preserveMetadata, dryRun });
+        if (!result.success) {
+          logger.error(`Clip ${index + 1} failed: ${result.error}`);
+          continue;
+        }
+        if (dryRun) {
+          logger.info(`[DRY RUN] ${result.data!.command}`);
+        } else {
+          logger.success(`Created: ${result.data!.outputPath}`);
+          if (transcodeRequested) {
+            logVideoProcess(
+              { db, logger, clock },
+              { jobId: randomUUID(), inputPath: input, outputPath, format: VIDEO_TRANSCODE_PRESETS[presetKey].container, presetKey, resolution, status: 'completed' }
+            );
+          }
+        }
+      }
+    }
+    return;
+  }
 
   if (isVideoTranscode) {
     if (urls.length > 0) {

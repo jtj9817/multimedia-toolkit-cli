@@ -293,6 +293,25 @@ bun run src/index.ts -i video.mp4 --gif-webp-preset webp-lossless -o output.webp
 
 ## Clipping Options
 
+### `--video-clip <start:end>`
+
+Create a video clip. Repeat this option to create several clips in one command.
+When paired with `--video-format`, `--video-preset`, `--video-quality`, or
+`--resolution`, the toolkit creates and verifies a source-format clip first,
+then transcodes it using the selected video preset.
+
+```bash
+# Source-container stream-copy clip; boundaries may align to a keyframe
+multimedia-toolkit -i video.mp4 --video-clip 90:150 -o ./clips
+
+# Clip then transcode
+multimedia-toolkit -i video.mp4 --video-clip 90:150 --video-format webm -o ./clips
+```
+
+The output destination must be a directory. Clip names use
+`<source>_CLIP_YYYYMMDD-HHmmss.<extension>`. FFprobe rejects and removes empty
+or unreadable clip outputs.
+
 ### `-s, --start <time>`
 
 Start time for clipping.

@@ -3,7 +3,7 @@
  */
 
 import { existsSync, statSync } from 'fs';
-import { basename, join } from 'path';
+import { basename, extname, join } from 'path';
 import { randomUUID } from 'crypto';
 
 import { OutputDestinationDialog } from '@/cli/dialogs/output-destination';
@@ -16,6 +16,7 @@ import { GIF_WEBP_PRESETS } from '@/media/gif-webp-presets';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
 import type { GifWebpConversionOptions, TimeClip } from '@/types';
 import { logAudioProcess, logGifWebpProcess, logVideoProcess } from '@/utils/process-logging';
+import { buildVideoClipName } from '@/utils/path';
 
 class FunctionCommand implements Command {
   constructor(
@@ -34,6 +35,7 @@ export function createInteractiveCommands(): Command[] {
   return [
     new FunctionCommand('extract-audio', 'Extract Audio', 'Convert video/audio to audio format', runExtractAudio),
     new FunctionCommand('clip-audio', 'Clip Audio', 'Extract specific time segments', runClipAudio),
+    new FunctionCommand('clip-video', 'Clip Video', 'Create source-format or transcoded video clips', runClipVideo),
     new FunctionCommand('url-download', 'Download & Extract', 'Download from URL and extract audio', runUrlDownload),
     new FunctionCommand('batch-process', 'Batch Process', 'Process multiple files', runBatchProcess),
     new FunctionCommand('extract-chapters', 'Extract Chapters', 'Split by metadata chapters', runChapterExtraction),
@@ -238,6 +240,85 @@ async function runClipAudio(ctx: CommandContext): Promise<void> {
     );
   } else {
     ctx.cli.error(result.error || 'Clipping failed');
+  }
+}
+
+async function runClipVideo(ctx: CommandContext): Promise<void> {
+  const inputPath = await ctx.cli.selectMediaFile(process.cwd());
+  if (!inputPath || !existsSync(inputPath)) {
+    if (inputPath) ctx.cli.error(`File not found: ${inputPath}`);
+    return;
+  }
+
+  const infoResult = await ctx.ffmpeg.getMediaInfo(inputPath);
+  if (infoResult.success) {
+    ctx.cli.info(`Duration: ${ctx.ffmpeg.formatTime(infoResult.data?.duration || 0)}`);
+  }
+
+  const multiple = await ctx.cli.confirm('Define multiple clips?', false);
+  const clips = multiple ? await ctx.cli.promptMultipleClips() : [await ctx.cli.promptClip()];
+  if (clips.length === 0) {
+    ctx.cli.warn('No clips defined. Aborting.');
+    return;
+  }
+
+  const preserveSource = await ctx.cli.confirm('Match the source container and streams?', true);
+  let presetKey = ctx.config.get('defaultVideoPreset');
+  let resolution = ctx.config.get('defaultVideoResolution');
+  if (!preserveSource) {
+    const selectedPreset = await ctx.cli.selectVideoPreset(presetKey);
+    if (selectedPreset === null) return;
+    presetKey = selectedPreset;
+    const selectedResolution = await ctx.cli.selectVideoResolution(resolution);
+    if (selectedResolution === null) return;
+    resolution = selectedResolution;
+  } else {
+    ctx.cli.warn('Source-format clips use stream copy; cuts can start at a nearby video keyframe.');
+  }
+
+  const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
+  const outputChoice = await outputDialog.promptForOutputDirectory({
+    defaultBaseName: basename(inputPath).replace(/\.[^.]+$/, ''),
+    defaultDir: ctx.config.get('defaultOutputDir'),
+    allowRename: false
+  });
+  const sourceExtension = extname(inputPath).slice(1).toLowerCase();
+  if (!sourceExtension) {
+    ctx.cli.error('The source video must have a filename extension to create a source-format clip.');
+    return;
+  }
+
+  const targetExtension = preserveSource ? sourceExtension : VIDEO_TRANSCODE_PRESETS[presetKey].container;
+  const outputs: string[] = [];
+  for (let index = 0; index < clips.length; index++) {
+    const visiblePath = join(outputChoice.outputDir, buildVideoClipName(
+      { clock: ctx.clock }, basename(inputPath).replace(/\.[^.]+$/, ''), targetExtension, index + 1
+    ));
+    const intermediatePath = preserveSource
+      ? visiblePath
+      : join(outputChoice.outputDir, `.${buildVideoClipName(
+        { clock: ctx.clock }, basename(inputPath).replace(/\.[^.]+$/, ''), sourceExtension, index + 1
+      ).replace(new RegExp(`\\.${sourceExtension}$`, 'i'), '')}.intermediate.${sourceExtension}`);
+
+    const result = preserveSource
+      ? await ctx.ffmpeg.clipVideo(inputPath, visiblePath, { clip: clips[index] })
+      : await ctx.ffmpeg.clipAndTranscodeVideo(inputPath, intermediatePath, visiblePath, {
+          clip: clips[index],
+          transcode: { presetKey, resolution }
+        });
+    if (!result.success) {
+      ctx.cli.error(`Clip ${index + 1} failed: ${result.error}`);
+      continue;
+    }
+    outputs.push(result.data!.outputPath);
+    ctx.cli.success(`Created: ${result.data!.outputPath}`);
+  }
+
+  if (outputs.length > 0 && !preserveSource) {
+    logVideoProcess(
+      { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
+      { jobId: randomUUID(), inputPath, outputPath: outputs[0], format: VIDEO_TRANSCODE_PRESETS[presetKey].container, presetKey, resolution, status: 'completed' }
+    );
   }
 }
 
