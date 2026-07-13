@@ -9,6 +9,7 @@ import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '@/types';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
 import { GIF_WEBP_PRESETS, FPS_OPTIONS, WIDTH_OPTIONS, WEBP_QUALITY_OPTIONS, GIF_DITHER_OPTIONS, getDefaultGifWebpOptions } from '@/media/gif-webp-presets';
 import { FzfSelector } from '@/utils/fzf';
+import { NumberedMenu, type NumberedChoice } from '@/cli/menus/numbered-menu';
 
 // ANSI escape regex for stripping color codes
 // eslint-disable-next-line no-control-regex
@@ -133,37 +134,23 @@ export class CLIInterface {
     displayFn: (item: T, index: number) => string,
     allowMultiple: boolean = false
   ): Promise<T[]> {
-    console.log(`\n${c.bright}${title}${c.reset}\n`);
-
-    items.forEach((item, idx) => {
-      console.log(`  ${c.yellow}[${idx + 1}]${c.reset} ${displayFn(item, idx)}`);
+    const choices: NumberedChoice<T>[] = items.map((item, index) => ({
+      label: displayFn(item, index),
+      value: item
+    }));
+    const menu = new NumberedMenu(this, {
+      title,
+      choices,
+      exitLabel: 'Back'
     });
 
-    console.log();
-
     if (allowMultiple) {
-      const input = await this.prompt('Enter numbers (comma-separated, or "all")');
-
-      if (input.toLowerCase() === 'all') {
-        return items;
-      }
-
-      const indices = input.split(',')
-        .map(s => parseInt(s.trim()) - 1)
-        .filter(i => i >= 0 && i < items.length);
-
-      return indices.map(i => items[i]);
-    } else {
-      let selection = -1;
-      while (selection < 0 || selection >= items.length) {
-        const input = await this.prompt('Enter number');
-        selection = parseInt(input) - 1;
-        if (selection < 0 || selection >= items.length) {
-          console.log(`${c.red}Invalid selection. Please enter 1-${items.length}.${c.reset}`);
-        }
-      }
-      return [items[selection]];
+      const selected = await menu.runMultiple();
+      return selected ?? [];
     }
+
+    const selected = await menu.run();
+    return selected === null ? [] : [selected];
   }
 
   /**
@@ -269,167 +256,169 @@ export class CLIInterface {
     return clips;
   }
 
+  private runNumberedMenu<T>(
+    title: string,
+    choices: NumberedChoice<T>[],
+    allowExit: boolean = true
+  ): Promise<T | null> {
+    return new NumberedMenu(this, {
+      title,
+      choices,
+      exitLabel: 'Back',
+      allowExit
+    }).run();
+  }
+
   /**
    * Select output format
    */
-  async selectFormat(): Promise<OutputFormat> {
-    const options: MenuOption[] = OUTPUT_FORMATS.map(fmt => ({
-      key: fmt,
+  async selectFormat(): Promise<OutputFormat | null> {
+    const options: NumberedChoice<OutputFormat>[] = OUTPUT_FORMATS.map(fmt => ({
       label: fmt.toUpperCase(),
       description: fmt === 'mp3' ? 'Most compatible' :
                    fmt === 'flac' ? 'Lossless' :
                    fmt === 'opus' ? 'Best compression' :
                    fmt === 'webm' ? 'Opus in WebM container' : undefined,
-      action: async () => {}
+      value: fmt
     }));
 
-    const selection = await this.menu('Select Output Format', options);
-    return selection as OutputFormat;
+    return this.runNumberedMenu('Select Output Format', options);
   }
 
   /**
    * Select quality preset
    */
-  async selectQuality(): Promise<string> {
-    const options: MenuOption[] = Object.entries(QUALITY_PRESETS).map(([key, preset]) => ({
-      key,
+  async selectQuality(): Promise<string | null> {
+    const options: NumberedChoice<string>[] = Object.entries(QUALITY_PRESETS).map(([key, preset]) => ({
       label: preset.name.replace('_', ' ').toUpperCase(),
       description: `${preset.description} (${preset.bitrate}, ${preset.sampleRate}Hz)`,
-      action: async () => {}
+      value: key
     }));
 
-    return this.menu('Select Quality Preset', options);
+    return this.runNumberedMenu('Select Quality Preset', options);
   }
 
   /**
    * Select video transcode preset
    */
-  async selectVideoPreset(defaultKey?: VideoPresetKey): Promise<VideoPresetKey> {
-    const options: MenuOption[] = Object.entries(VIDEO_TRANSCODE_PRESETS).map(([key, preset]) => ({
-      key,
+  async selectVideoPreset(defaultKey?: VideoPresetKey): Promise<VideoPresetKey | null> {
+    const options: NumberedChoice<VideoPresetKey>[] = Object.entries(VIDEO_TRANSCODE_PRESETS).map(([key, preset]) => ({
       label: preset.label,
       description: `${preset.container.toUpperCase()} default`,
-      action: async () => {}
+      value: key as VideoPresetKey
     }));
 
     if (defaultKey && VIDEO_TRANSCODE_PRESETS[defaultKey]) {
-      const existing = options.find(option => option.key === defaultKey);
+      const existing = options.find(option => option.value === defaultKey);
       if (existing) {
         existing.label = `${existing.label} (default)`;
       }
     }
 
-    const selection = await this.menu('Select Video Preset', options);
-    return selection as VideoPresetKey;
+    return this.runNumberedMenu('Select Video Preset', options);
   }
 
   /**
    * Select video resolution
    */
-  async selectVideoResolution(defaultValue?: VideoResolution): Promise<VideoResolution> {
-    const options: MenuOption[] = [
-      { key: 'source', label: 'Source (no scaling)', action: async () => {} },
-      { key: '2160p', label: '2160p (4K)', action: async () => {} },
-      { key: '1440p', label: '1440p (2K)', action: async () => {} },
-      { key: '1080p', label: '1080p', action: async () => {} },
-      { key: '720p', label: '720p', action: async () => {} },
-      { key: '480p', label: '480p', action: async () => {} }
+  async selectVideoResolution(defaultValue?: VideoResolution): Promise<VideoResolution | null> {
+    const options: NumberedChoice<VideoResolution>[] = [
+      { label: 'Source (no scaling)', value: 'source' },
+      { label: '2160p (4K)', value: '2160p' },
+      { label: '1440p (2K)', value: '1440p' },
+      { label: '1080p', value: '1080p' },
+      { label: '720p', value: '720p' },
+      { label: '480p', value: '480p' }
     ];
 
     if (defaultValue) {
-      const existing = options.find(option => option.key === defaultValue);
+      const existing = options.find(option => option.value === defaultValue);
       if (existing) {
         existing.label = `${existing.label} (default)`;
       }
     }
 
-    const selection = await this.menu('Select Video Resolution', options);
-    return selection as VideoResolution;
+    return this.runNumberedMenu('Select Video Resolution', options);
   }
 
   /**
    * Select video output format
    */
-  async selectVideoFormat(defaultValue?: VideoOutputFormat): Promise<VideoOutputFormat> {
-    const options: MenuOption[] = VIDEO_OUTPUT_FORMATS.map(fmt => ({
-      key: fmt,
+  async selectVideoFormat(defaultValue?: VideoOutputFormat): Promise<VideoOutputFormat | null> {
+    const options: NumberedChoice<VideoOutputFormat>[] = VIDEO_OUTPUT_FORMATS.map(fmt => ({
       label: fmt.toUpperCase(),
-      action: async () => {}
+      value: fmt
     }));
 
     if (defaultValue) {
-      const existing = options.find(option => option.key === defaultValue);
+      const existing = options.find(option => option.value === defaultValue);
       if (existing) {
         existing.label = `${existing.label} (default)`;
       }
     }
 
-    const selection = await this.menu('Select Video Output Format', options);
-    return selection as VideoOutputFormat;
+    return this.runNumberedMenu('Select Video Output Format', options);
   }
 
   /**
    * Select image output format (GIF or WebP)
    */
-  async selectImageFormat(): Promise<ImageOutputFormat> {
-    const options: MenuOption[] = [
-      { key: 'gif', label: 'GIF', description: 'Universal support, larger files', action: async () => {} },
-      { key: 'webp', label: 'WebP', description: 'Better quality/size, modern format', action: async () => {} }
+  async selectImageFormat(): Promise<ImageOutputFormat | null> {
+    const options: NumberedChoice<ImageOutputFormat>[] = [
+      { label: 'GIF', description: 'Universal support, larger files', value: 'gif' },
+      { label: 'WebP', description: 'Better quality/size, modern format', value: 'webp' }
     ];
 
-    const selection = await this.menu('Select Image Format', options);
-    return selection as ImageOutputFormat;
+    return this.runNumberedMenu('Select Image Format', options);
   }
 
   /**
    * Select GIF/WebP conversion preset
    */
-  async selectGifWebpPreset(format: ImageOutputFormat): Promise<GifWebpPresetKey | 'custom'> {
+  async selectGifWebpPreset(format: ImageOutputFormat): Promise<GifWebpPresetKey | 'custom' | null> {
     // Filter presets by format
     const formatPresets = Object.values(GIF_WEBP_PRESETS).filter(p => p.format === format);
 
-    const options: MenuOption[] = [
+    const options: NumberedChoice<GifWebpPresetKey | 'custom'>[] = [
       ...formatPresets.map(preset => ({
-        key: preset.key,
         label: preset.label,
         description: preset.description,
-        action: async () => {}
+        value: preset.key
       })),
-      { key: 'custom', label: 'Custom Settings', description: 'Configure your own settings', action: async () => {} }
+      { label: 'Custom Settings', description: 'Configure your own settings', value: 'custom' }
     ];
 
-    const selection = await this.menu(`Select ${format.toUpperCase()} Preset`, options);
-    return selection as GifWebpPresetKey | 'custom';
+    return this.runNumberedMenu(`Select ${format.toUpperCase()} Preset`, options);
   }
 
   /**
    * Configure custom GIF/WebP settings
    */
-  async configureGifWebpOptions(format: ImageOutputFormat): Promise<Partial<GifWebpConversionOptions>> {
+  async configureGifWebpOptions(format: ImageOutputFormat): Promise<Partial<GifWebpConversionOptions> | null> {
     const defaults = getDefaultGifWebpOptions(format);
     const options: Partial<GifWebpConversionOptions> = { format };
 
     console.log(`\n${c.cyan}Configure ${format.toUpperCase()} Settings${c.reset}\n`);
 
     // FPS selection
-    const fpsOptions: MenuOption[] = FPS_OPTIONS.map(opt => ({
-      key: String(opt.value),
+    const fpsOptions: NumberedChoice<number>[] = FPS_OPTIONS.map(opt => ({
       label: opt.label,
       description: opt.description,
-      action: async () => {}
+      value: opt.value
     }));
-    const fpsChoice = await this.menu('Frame Rate', fpsOptions);
-    options.fps = parseInt(fpsChoice) || defaults.fps;
+    const fpsChoice = await this.runNumberedMenu('Frame Rate', fpsOptions);
+    if (fpsChoice === null) return null;
+    options.fps = fpsChoice || defaults.fps;
 
     // Width selection
-    const widthOptions: MenuOption[] = WIDTH_OPTIONS.map(opt => ({
-      key: String(opt.value),
+    const widthOptions: NumberedChoice<number>[] = WIDTH_OPTIONS.map(opt => ({
       label: opt.label,
       description: opt.description,
-      action: async () => {}
+      value: opt.value
     }));
-    const widthChoice = await this.menu('Output Width', widthOptions);
-    const widthValue = parseInt(widthChoice);
+    const widthChoice = await this.runNumberedMenu('Output Width', widthOptions);
+    if (widthChoice === null) return null;
+    const widthValue = widthChoice;
     if (widthValue > 0) {
       options.width = widthValue;
     }
@@ -437,14 +426,14 @@ export class CLIInterface {
     // Format-specific options
     if (format === 'webp') {
       // Quality selection
-      const qualityOptions: MenuOption[] = WEBP_QUALITY_OPTIONS.map(opt => ({
-        key: String(opt.value),
+      const qualityOptions: NumberedChoice<number>[] = WEBP_QUALITY_OPTIONS.map(opt => ({
         label: opt.label,
         description: opt.description,
-        action: async () => {}
+        value: opt.value
       }));
-      const qualityChoice = await this.menu('Quality', qualityOptions);
-      options.quality = parseInt(qualityChoice) || defaults.quality;
+      const qualityChoice = await this.runNumberedMenu('Quality', qualityOptions);
+      if (qualityChoice === null) return null;
+      options.quality = qualityChoice || defaults.quality;
 
       // Lossless option
       options.lossless = await this.confirm('Use lossless compression?', false);
@@ -454,22 +443,23 @@ export class CLIInterface {
       options.compression = Math.min(6, Math.max(0, parseInt(compressionChoice) || 4));
     } else {
       // GIF-specific: Dithering
-      const ditherOptions: MenuOption[] = GIF_DITHER_OPTIONS.map(opt => ({
-        key: opt.value,
+      const ditherOptions: NumberedChoice<'none' | 'floyd_steinberg' | 'sierra2' | 'bayer'>[] = GIF_DITHER_OPTIONS.map(opt => ({
         label: opt.label,
         description: opt.description,
-        action: async () => {}
+        value: opt.value as 'none' | 'floyd_steinberg' | 'sierra2' | 'bayer'
       }));
-      const ditherChoice = await this.menu('Dithering Algorithm', ditherOptions);
-      options.dither = ditherChoice as 'none' | 'floyd_steinberg' | 'sierra2' | 'bayer';
+      const ditherChoice = await this.runNumberedMenu('Dithering Algorithm', ditherOptions);
+      if (ditherChoice === null) return null;
+      options.dither = ditherChoice;
 
       // Palette mode
-      const paletteOptions: MenuOption[] = [
-        { key: 'diff', label: 'Diff Mode', description: 'Optimizes for animation (recommended)', action: async () => {} },
-        { key: 'full', label: 'Full Mode', description: 'Uses all frames for palette', action: async () => {} }
+      const paletteOptions: NumberedChoice<'full' | 'diff'>[] = [
+        { label: 'Diff Mode', description: 'Optimizes for animation (recommended)', value: 'diff' },
+        { label: 'Full Mode', description: 'Uses all frames for palette', value: 'full' }
       ];
-      const paletteChoice = await this.menu('Palette Mode', paletteOptions);
-      options.paletteMode = paletteChoice as 'full' | 'diff';
+      const paletteChoice = await this.runNumberedMenu('Palette Mode', paletteOptions);
+      if (paletteChoice === null) return null;
+      options.paletteMode = paletteChoice;
     }
 
     // Loop options
@@ -640,12 +630,11 @@ export class CLIInterface {
           // Show selected file and confirm
           console.log(`\n${c.green}✓${c.reset} Selected: ${c.bright}${result.data}${c.reset}\n`);
 
-          const confirmChoice = await this.menu('Confirm selection?', [
-            { key: 'y', label: 'Yes, use this file', description: 'Proceed with selected file', action: async () => {} },
-            { key: 'r', label: 'Reselect', description: 'Choose a different file', action: async () => {} },
-            { key: 'm', label: 'Manual input', description: 'Type file path manually', action: async () => {} },
-            ...(allowBack ? [{ key: 'b', label: 'Back', description: 'Return to previous menu', action: async () => {} }] : [])
-          ]);
+          const confirmChoice = await this.runNumberedMenu('Confirm selection?', [
+            { label: 'Yes, use this file', description: 'Proceed with selected file', value: 'y' },
+            { label: 'Reselect', description: 'Choose a different file', value: 'r' },
+            { label: 'Manual input', description: 'Type file path manually', value: 'm' }
+          ], allowBack);
 
           if (confirmChoice === 'y') {
             return result.data;
@@ -655,18 +644,17 @@ export class CLIInterface {
             const manualPath = await this.prompt('Enter file path');
             if (manualPath) return manualPath;
             continue;
-          } else if (confirmChoice === 'b') {
+          } else if (confirmChoice === null) {
             return ''; // Signal to go back
           }
         } else {
           // FZF was canceled or no files found
           console.log(`\n${c.yellow}⚠${c.reset} ${result.error || 'No file selected'}\n`);
 
-          const retryChoice = await this.menu('What would you like to do?', [
-            { key: 'r', label: 'Retry FZF', description: 'Try selecting again', action: async () => {} },
-            { key: 'm', label: 'Manual input', description: 'Type file path manually', action: async () => {} },
-            ...(allowBack ? [{ key: 'b', label: 'Back', description: 'Return to previous menu', action: async () => {} }] : [])
-          ]);
+          const retryChoice = await this.runNumberedMenu('What would you like to do?', [
+            { label: 'Retry FZF', description: 'Try selecting again', value: 'r' },
+            { label: 'Manual input', description: 'Type file path manually', value: 'm' }
+          ], allowBack);
 
           if (retryChoice === 'r') {
             continue;
@@ -674,7 +662,7 @@ export class CLIInterface {
             const manualPath = await this.prompt('Enter file path');
             if (manualPath) return manualPath;
             continue;
-          } else if (retryChoice === 'b') {
+          } else if (retryChoice === null) {
             return ''; // Signal to go back
           }
         }
@@ -727,12 +715,11 @@ export class CLIInterface {
           });
           console.log();
 
-          const confirmChoice = await this.menu('Confirm selection?', [
-            { key: 'y', label: 'Yes, use these files', description: `Proceed with ${result.data.length} file(s)`, action: async () => {} },
-            { key: 'r', label: 'Reselect', description: 'Choose different files', action: async () => {} },
-            { key: 'm', label: 'Manual input', description: 'Type file paths manually', action: async () => {} },
-            ...(allowBack ? [{ key: 'b', label: 'Back', description: 'Return to previous menu', action: async () => {} }] : [])
-          ]);
+          const confirmChoice = await this.runNumberedMenu('Confirm selection?', [
+            { label: 'Yes, use these files', description: `Proceed with ${result.data.length} file(s)`, value: 'y' },
+            { label: 'Reselect', description: 'Choose different files', value: 'r' },
+            { label: 'Manual input', description: 'Type file paths manually', value: 'm' }
+          ], allowBack);
 
           if (confirmChoice === 'y') {
             return result.data;
@@ -743,18 +730,17 @@ export class CLIInterface {
             const files = input.split(',').map(f => f.trim()).filter(Boolean);
             if (files.length > 0) return files;
             continue;
-          } else if (confirmChoice === 'b') {
+          } else if (confirmChoice === null) {
             return [];
           }
         } else {
           // FZF was canceled or no files found
           console.log(`\n${c.yellow}⚠${c.reset} ${result.error || 'No files selected'}\n`);
 
-          const retryChoice = await this.menu('What would you like to do?', [
-            { key: 'r', label: 'Retry FZF', description: 'Try selecting again', action: async () => {} },
-            { key: 'm', label: 'Manual input', description: 'Type file paths manually', action: async () => {} },
-            ...(allowBack ? [{ key: 'b', label: 'Back', description: 'Return to previous menu', action: async () => {} }] : [])
-          ]);
+          const retryChoice = await this.runNumberedMenu('What would you like to do?', [
+            { label: 'Retry FZF', description: 'Try selecting again', value: 'r' },
+            { label: 'Manual input', description: 'Type file paths manually', value: 'm' }
+          ], allowBack);
 
           if (retryChoice === 'r') {
             continue;
@@ -763,7 +749,7 @@ export class CLIInterface {
             const files = input.split(',').map(f => f.trim()).filter(Boolean);
             if (files.length > 0) return files;
             continue;
-          } else if (retryChoice === 'b') {
+          } else if (retryChoice === null) {
             return [];
           }
         }

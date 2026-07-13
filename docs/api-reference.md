@@ -133,6 +133,10 @@ Display numbered list for selection.
 
 **Returns**: Array of selected items
 
+Selections are entered using the displayed numbers. Single-select lists accept
+`0` to go back; multi-select lists accept comma-separated numbers, `all`, or
+`0` to go back.
+
 **Example**:
 ```typescript
 const files = await cli.selectFromList(

@@ -34,6 +34,7 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
         label: 'Change default quality',
         value: async () => {
           const quality = await this.cli.selectQuality();
+          if (quality === null) return;
           this.config.set('defaultQuality', quality);
           this.cli.success('Updated');
         }
@@ -42,6 +43,7 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
         label: 'Change default format',
         value: async () => {
           const format = await this.cli.selectFormat();
+          if (format === null) return;
           this.config.set('defaultFormat', format);
           this.cli.success('Updated');
         }
@@ -50,6 +52,7 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
         label: 'Change default video preset',
         value: async () => {
           const preset = await this.cli.selectVideoPreset(this.config.get('defaultVideoPreset'));
+          if (preset === null) return;
           this.config.set('defaultVideoPreset', preset);
           const presetData = VIDEO_TRANSCODE_PRESETS[preset];
           this.config.set('defaultVideoFormat', presetData.container);
@@ -60,6 +63,7 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
         label: 'Change default video format',
         value: async () => {
           const format = await this.cli.selectVideoFormat(this.config.get('defaultVideoFormat'));
+          if (format === null) return;
           this.config.set('defaultVideoFormat', format);
           this.cli.success('Updated');
         }
@@ -68,6 +72,7 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
         label: 'Change default video resolution',
         value: async () => {
           const resolution = await this.cli.selectVideoResolution(this.config.get('defaultVideoResolution'));
+          if (resolution === null) return;
           this.config.set('defaultVideoResolution', resolution);
           this.cli.success('Updated');
         }

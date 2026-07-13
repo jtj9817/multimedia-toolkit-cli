@@ -67,7 +67,9 @@ async function runExtractAudio(ctx: CommandContext): Promise<void> {
   }
 
   const format = await ctx.cli.selectFormat();
+  if (format === null) return;
   const quality = await ctx.cli.selectQuality();
+  if (quality === null) return;
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
   const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
@@ -190,7 +192,9 @@ async function runClipAudio(ctx: CommandContext): Promise<void> {
   }
 
   const format = await ctx.cli.selectFormat();
+  if (format === null) return;
   const quality = await ctx.cli.selectQuality();
+  if (quality === null) return;
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
   const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
@@ -259,7 +263,9 @@ async function runUrlDownload(ctx: CommandContext): Promise<void> {
   }
 
   const format = await ctx.cli.selectFormat();
+  if (format === null) return;
   const quality = await ctx.cli.selectQuality();
+  if (quality === null) return;
 
   const jobId = randomUUID();
   const downloadResult = await ctx.cli.withSpinner('Downloading...', () =>
@@ -354,7 +360,9 @@ async function runBatchProcess(ctx: CommandContext): Promise<void> {
   }
 
   const format = await ctx.cli.selectFormat();
+  if (format === null) return;
   const quality = await ctx.cli.selectQuality();
+  if (quality === null) return;
   const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForOutputDirectory({
     defaultBaseName: 'output',
@@ -430,7 +438,9 @@ async function runChapterExtraction(ctx: CommandContext): Promise<void> {
   }
 
   const format = await ctx.cli.selectFormat();
+  if (format === null) return;
   const quality = await ctx.cli.selectQuality();
+  if (quality === null) return;
   const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForOutputDirectory({
     defaultBaseName: basename(inputPath).replace(/\.[^.]+$/, ''),
@@ -469,7 +479,9 @@ async function runSilenceSplit(ctx: CommandContext): Promise<void> {
   const minSegment = await ctx.cli.prompt('Minimum segment duration (seconds)', '5');
 
   const format = await ctx.cli.selectFormat();
+  if (format === null) return;
   const quality = await ctx.cli.selectQuality();
+  if (quality === null) return;
   const outputDialog = new OutputDestinationDialog(ctx.cli, ctx.organizer, ctx.config);
   const outputChoice = await outputDialog.promptForOutputDirectory({
     defaultBaseName: basename(inputPath).replace(/\.[^.]+$/, ''),
@@ -522,7 +534,9 @@ async function runVideoTranscode(ctx: CommandContext): Promise<void> {
   }
 
   const presetKey = await ctx.cli.selectVideoPreset(ctx.config.get('defaultVideoPreset'));
+  if (presetKey === null) return;
   const resolution = await ctx.cli.selectVideoResolution(ctx.config.get('defaultVideoResolution'));
+  if (resolution === null) return;
   const preset = VIDEO_TRANSCODE_PRESETS[presetKey];
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
@@ -581,7 +595,9 @@ async function runGifWebpConvert(ctx: CommandContext): Promise<void> {
   }
 
   const format = await ctx.cli.selectImageFormat();
+  if (format === null) return;
   const presetKey = await ctx.cli.selectGifWebpPreset(format);
+  if (presetKey === null) return;
 
   let conversionOptions: Partial<GifWebpConversionOptions> = { format };
   if (presetKey !== 'custom') {
@@ -590,6 +606,7 @@ async function runGifWebpConvert(ctx: CommandContext): Promise<void> {
     ctx.cli.info(`Using preset: ${preset.label}`);
   } else {
     const customOptions = await ctx.cli.configureGifWebpOptions(format);
+    if (customOptions === null) return;
     conversionOptions = { ...conversionOptions, ...customOptions };
   }
 
