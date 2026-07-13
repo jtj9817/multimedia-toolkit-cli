@@ -267,3 +267,62 @@ describe('FFmpegWrapper - extractAudio', () => {
     expect(preserved.data!.command).not.toContain('-map_metadata -1');
   });
 });
+
+describe('FFmpegWrapper - video clipping', () => {
+  const ffmpeg = new FFmpegWrapper({ config: mockConfig, processRunner: mockRunner });
+
+  test('builds a source-container stream-copy clip command with all CPU cores', async () => {
+    const result = await ffmpeg.clipVideo('input.mp4', 'clip.mp4', {
+      clip: { startTime: '00:01:30', duration: 15 },
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data!.command).toContain('-ss 00:01:30');
+    expect(result.data!.command).toContain('-t 15');
+    expect(result.data!.command).toContain('-map 0');
+    expect(result.data!.command).toContain('-c copy');
+    expect(result.data!.command).toContain('-threads 0');
+    expect(result.warnings).toContain('Stream-copy cuts may begin at a nearby keyframe.');
+  });
+
+  test('converts start/end timing into a clip duration after input seeking', async () => {
+    const result = await ffmpeg.clipVideo('input.mp4', 'clip.mp4', {
+      clip: { startTime: '00:01:30', endTime: '00:01:45' },
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data!.command).toContain('-t 15');
+    expect(result.data!.command).not.toContain('-to');
+  });
+
+  test('rejects ambiguous and invalid video clip timing', async () => {
+    const ambiguous = await ffmpeg.clipVideo('input.mp4', 'clip.mp4', {
+      clip: { startTime: '5', endTime: '10', duration: 5 },
+      dryRun: true
+    });
+    const invalid = await ffmpeg.clipVideo('input.mp4', 'clip.mp4', {
+      clip: { startTime: 'bogus', duration: 5 },
+      dryRun: true
+    });
+
+    expect(ambiguous.success).toBe(false);
+    expect(ambiguous.error).toContain('either clip duration or end time');
+    expect(invalid.success).toBe(false);
+    expect(invalid.error).toContain('Invalid clip start time');
+  });
+
+  test('plans source clipping before a requested transcode', async () => {
+    const result = await ffmpeg.clipAndTranscodeVideo('input.mp4', 'intermediate.mp4', 'clip.webm', {
+      clip: { startTime: '10', endTime: '20' },
+      transcode: { presetKey: 'any-to-webm' },
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data!.command.indexOf('intermediate.mp4')).toBeLessThan(result.data!.command.indexOf('clip.webm'));
+    expect(result.data!.command).toContain('&&');
+    expect(result.data!.command).toContain('-c:v libvpx-vp9');
+  });
+});

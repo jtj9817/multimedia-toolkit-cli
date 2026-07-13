@@ -127,6 +127,19 @@ export interface VideoTranscodeOptions {
   dryRun?: boolean;
 }
 
+/** Options for a stream-copy video clip. Stream copying is fast and lossless,
+ * but video boundaries can be aligned to nearby keyframes. */
+export interface VideoClipOptions {
+  clip: TimeClip;
+  preserveMetadata?: boolean;
+  dryRun?: boolean;
+}
+
+/** Clip first in the source container, then transcode that verified clip. */
+export interface VideoClipTranscodeOptions extends VideoClipOptions {
+  transcode: VideoTranscodeOptions;
+}
+
 // Quality presets
 export interface QualityPreset {
   name: string;

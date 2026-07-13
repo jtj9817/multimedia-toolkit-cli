@@ -17,11 +17,14 @@ import type {
   VideoTranscodeOptions,
   VideoTranscodePreset,
   VideoScaleSettings,
-  GifWebpConversionOptions
+  GifWebpConversionOptions,
+  VideoClipOptions,
+  VideoClipTranscodeOptions
 } from '@/types';
 import { QUALITY_PRESETS } from '@/types';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
 import type { ProcessRunner } from '@/utils/process-runner';
+import { existsSync, statSync, unlinkSync } from 'fs';
 
 const WEBM_OPUS_ARGS = ['-vbr', 'on', '-compression_level', '10', '-application', 'audio'];
 const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
@@ -316,6 +319,148 @@ export class FFmpegWrapper {
       return { success: true, data: { command: fullCommand, outputPath } };
     } catch (error) {
       return { success: false, error: `Transcode failed: ${error}` };
+    }
+  }
+
+  /**
+   * Create a lossless video clip in the requested container. FFmpeg can only
+   * start copied video streams at keyframes, so callers should surface that
+   * limitation when users request exact frame boundaries.
+   */
+  async clipVideo(
+    inputPath: string,
+    outputPath: string,
+    options: VideoClipOptions
+  ): Promise<OperationResult<{ command: string; outputPath: string }>> {
+    const validationError = this.validateTimeClip(options.clip);
+    if (validationError) {
+      return { success: false, error: validationError };
+    }
+
+    if (!options.dryRun) {
+      const inputDuration = await this.getDuration(inputPath);
+      const start = this.parseTimeToSeconds(options.clip.startTime);
+      const end = options.clip.duration !== undefined
+        ? start + options.clip.duration
+        : this.parseTimeToSeconds(options.clip.endTime!);
+      if (inputDuration <= 0 || end > inputDuration) {
+        return { success: false, error: 'Clip range must fall within the source video duration.' };
+      }
+    }
+
+    const preserveMetadata = options.preserveMetadata ?? this.config.get('preserveMetadata');
+    const args = this.buildVideoClipArgs(inputPath, outputPath, options.clip, preserveMetadata);
+    const fullCommand = `${this.ffmpegPath} ${args.join(' ')}`;
+
+    if (options.dryRun) {
+      return {
+        success: true,
+        data: { command: fullCommand, outputPath },
+        warnings: ['Dry run - command not executed', 'Stream-copy cuts may begin at a nearby keyframe.']
+      };
+    }
+
+    try {
+      const result = await this.processRunner.run([this.ffmpegPath, ...args], {
+        stdout: 'pipe',
+        stderr: 'pipe'
+      });
+      if (result.exitCode !== 0) {
+        this.removeFile(outputPath);
+        return { success: false, error: `Video clip failed: ${result.stderr}` };
+      }
+
+      const verification = await this.validateVideoOutput(outputPath);
+      if (!verification.success) {
+        this.removeFile(outputPath);
+        return { success: false, error: verification.error };
+      }
+
+      return {
+        success: true,
+        data: { command: fullCommand, outputPath },
+        warnings: ['Stream-copy cuts may begin at a nearby keyframe.']
+      };
+    } catch (error) {
+      this.removeFile(outputPath);
+      return { success: false, error: `Video clip failed: ${error}` };
+    }
+  }
+
+  /** Create and verify a source-format clip before transcoding its final output. */
+  async clipAndTranscodeVideo(
+    inputPath: string,
+    intermediatePath: string,
+    outputPath: string,
+    options: VideoClipTranscodeOptions
+  ): Promise<OperationResult<{ command: string; outputPath: string }>> {
+    const clipResult = await this.clipVideo(inputPath, intermediatePath, options);
+    if (!clipResult.success) {
+      return { success: false, error: clipResult.error, warnings: clipResult.warnings };
+    }
+
+    const transcodeResult = await this.transcodeVideo(intermediatePath, outputPath, {
+      ...options.transcode,
+      preserveMetadata: options.preserveMetadata ?? options.transcode.preserveMetadata,
+      dryRun: options.dryRun
+    });
+    const command = `${clipResult.data!.command} && ${transcodeResult.data?.command || ''}`;
+
+    if (!transcodeResult.success) {
+      if (!options.dryRun) this.removeFile(outputPath);
+      return { success: false, error: transcodeResult.error, warnings: clipResult.warnings };
+    }
+
+    if (!options.dryRun) {
+      const verification = await this.validateVideoOutput(outputPath);
+      if (!verification.success) {
+        this.removeFile(outputPath);
+        return { success: false, error: verification.error, warnings: clipResult.warnings };
+      }
+      this.removeFile(intermediatePath);
+    }
+
+    return {
+      success: true,
+      data: { command, outputPath },
+      warnings: clipResult.warnings
+    };
+  }
+
+  /** Validate that a produced video is non-empty and readable by FFprobe. */
+  async validateVideoOutput(outputPath: string): Promise<OperationResult<void>> {
+    if (!existsSync(outputPath)) {
+      return { success: false, error: `Video validation failed: output was not created (${outputPath})` };
+    }
+
+    if (statSync(outputPath).size === 0) {
+      return { success: false, error: `Video validation failed: output is empty (${outputPath})` };
+    }
+
+    try {
+      const result = await this.processRunner.run([
+        this.ffprobePath,
+        '-v', 'error',
+        '-print_format', 'json',
+        '-show_format',
+        '-show_streams',
+        outputPath
+      ], { stdout: 'pipe', stderr: 'pipe' });
+
+      if (result.exitCode !== 0) {
+        return { success: false, error: `Video validation failed: FFprobe could not read output: ${result.stderr}` };
+      }
+
+      const data = JSON.parse(result.stdout) as { format?: { duration?: string }; streams?: Array<{ codec_type?: string }> };
+      const duration = Number(data.format?.duration);
+      const hasVideoStream = data.streams?.some(stream => stream.codec_type === 'video');
+      if (!Number.isFinite(duration) || duration <= 0 || !hasVideoStream) {
+        return { success: false, error: 'Video validation failed: output metadata has no playable video stream or duration.' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: `Video validation failed: ${error}` };
     }
   }
 
@@ -1124,6 +1269,68 @@ export class FFmpegWrapper {
       return this.convertToGif(inputPath, outputPath, options);
     } else {
       return this.convertToWebp(inputPath, outputPath, options);
+    }
+  }
+
+  private buildVideoClipArgs(
+    inputPath: string,
+    outputPath: string,
+    clip: TimeClip,
+    preserveMetadata: boolean
+  ): string[] {
+    const args = ['-y', '-ss', clip.startTime, '-i', inputPath];
+    if (clip.duration !== undefined) {
+      args.push('-t', String(clip.duration));
+    } else if (clip.endTime) {
+      const duration = this.parseTimeToSeconds(clip.endTime) - this.parseTimeToSeconds(clip.startTime);
+      args.push('-t', String(duration));
+    }
+    args.push('-map', '0', '-c', 'copy');
+    if (!preserveMetadata) {
+      args.push('-map_metadata', '-1');
+    }
+    args.push('-threads', '0', outputPath);
+    return args;
+  }
+
+  private validateTimeClip(clip: TimeClip): string | null {
+    if (!this.isValidTime(clip.startTime)) {
+      return 'Invalid clip start time.';
+    }
+    const start = this.parseTimeToSeconds(clip.startTime);
+    if (!Number.isFinite(start) || start < 0) {
+      return 'Invalid clip start time.';
+    }
+    if (clip.duration !== undefined && clip.endTime !== undefined) {
+      return 'Specify either clip duration or end time, not both.';
+    }
+    if (clip.duration === undefined && !clip.endTime) {
+      return 'A video clip requires an end time or duration.';
+    }
+    if (clip.duration !== undefined && (!Number.isFinite(clip.duration) || clip.duration <= 0)) {
+      return 'Clip duration must be greater than zero.';
+    }
+    if (clip.endTime) {
+      if (!this.isValidTime(clip.endTime)) {
+        return 'Invalid clip end time.';
+      }
+      const end = this.parseTimeToSeconds(clip.endTime);
+      if (!Number.isFinite(end) || end <= start) {
+        return 'Clip end time must be after its start time.';
+      }
+    }
+    return null;
+  }
+
+  private isValidTime(time: string): boolean {
+    return /^\d+(?:\.\d+)?$/.test(time) || /^(\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?$/.test(time);
+  }
+
+  private removeFile(path: string): void {
+    try {
+      if (existsSync(path)) unlinkSync(path);
+    } catch {
+      // Preserve the original processing error if cleanup cannot complete.
     }
   }
 

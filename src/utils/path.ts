@@ -52,6 +52,37 @@ export function buildTimestampedName(
   return `${sanitizedBase}_${timestamp}${tagSuffix}.${extension}`;
 }
 
+/**
+ * Build the user-facing name for a video clip. The requested 26-character
+ * threshold applies to the original stem: long stems fall back to the first
+ * ten non-whitespace/non-dash/non-underscore characters.
+ */
+export function buildVideoClipName(
+  ctx: PathContext,
+  sourceBaseName: string,
+  extension: string,
+  sequence: number = 1
+): string {
+  const date = new Date(ctx.clock.now());
+  const timestamp = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('') + '-' + [
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0')
+  ].join('');
+  const suffix = `_CLIP_${timestamp}`;
+  const safeBase = sanitizeFileName(sourceBaseName);
+  const stem = safeBase.length + suffix.length > 26
+    ? sourceBaseName.replace(/[\s_-]/g, '').slice(0, 10) || 'clip'
+    : safeBase || 'clip';
+  const sequenceSuffix = sequence > 1 ? `_${String(sequence).padStart(2, '0')}` : '';
+
+  return `${stem}${suffix}${sequenceSuffix}.${extension.replace(/^\./, '')}`;
+}
+
 export function resolveOrganizedSubDir(
   ctx: PathContext,
   options: {

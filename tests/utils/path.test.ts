@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { buildTimestampedName, resolveOrganizedSubDir, sanitizeFileName } from '@/utils/path';
+import { buildTimestampedName, buildVideoClipName, resolveOrganizedSubDir, sanitizeFileName } from '@/utils/path';
 import { createAppContext } from '@/app/context';
 import type { Clock } from '@/utils/clock';
 import { mkdtempSync, rmSync } from 'fs';
@@ -70,6 +70,20 @@ describe('Path Utilities (Refactored)', () => {
       });
 
       expect(name).toBe(`My_File_${fixedTime}_hd_raw.mkv`);
+    });
+  });
+
+  describe('buildVideoClipName', () => {
+    it('adds the CLIP date-time suffix and extension', () => {
+      expect(buildVideoClipName(ctx, 'clip', 'mp4')).toMatch(/^clip_CLIP_\d{8}-\d{6}\.mp4$/);
+    });
+
+    it('uses the first ten source characters without spaces, underscores, or dashes for long stems', () => {
+      expect(buildVideoClipName(ctx, 'really long_source-name_for_a_video', 'webm')).toMatch(/^reallylong_CLIP_\d{8}-\d{6}\.webm$/);
+    });
+
+    it('adds a deterministic suffix for clips made in the same second', () => {
+      expect(buildVideoClipName(ctx, 'short', 'mkv', 2)).toMatch(/^short_CLIP_\d{8}-\d{6}_02\.mkv$/);
     });
   });
 
