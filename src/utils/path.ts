@@ -3,6 +3,7 @@
  */
 
 import { existsSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
 import { join } from 'path';
 
 export interface PathContext {
@@ -31,6 +32,13 @@ export function sanitizeFileName(name: string, maxLength: number = 80): string {
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '')
     .slice(0, maxLength);
+}
+
+/** Expand a leading ~ or ~/ to the user's home directory. */
+export function expandHomePath(input: string): string {
+  if (input === '~') return homedir();
+  if (input.startsWith('~/')) return join(homedir(), input.slice(2));
+  return input;
 }
 
 export function buildTimestampedName(

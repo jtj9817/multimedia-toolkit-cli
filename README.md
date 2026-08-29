@@ -13,7 +13,7 @@ Multimedia Toolkit is a powerful command-line tool for extracting and converting
 
 **What makes it special:**
 - 🎯 **Interactive & CLI modes** - User-friendly menus or scriptable commands
-- 🔍 **FZF integration** - Fuzzy file search with live preview
+- 🔍 **FZF integration** - Fuzzy file search with live preview, plus fzf-driven output directory browsing
 - 🎬 **Video transcoding** - Convert between WebM, MP4, and MKV formats
 - 🖼️ **GIF/WebP creation** - Generate animated images from videos
 - 📦 **Batch processing** - Handle multiple files efficiently
@@ -74,6 +74,7 @@ Multimedia Toolkit is a powerful command-line tool for extracting and converting
   - Browse files from current directory with live preview
   - Filter by media file extensions automatically
   - Multi-select files with keyboard shortcuts (Tab, Ctrl+A)
+  - Browse output directories with directory-only candidates and live name filtering
   - Graceful fallback to manual input if FZF unavailable
 - Configuration file for default settings
 - Interactive waveform visualization (ASCII art)
@@ -335,7 +336,7 @@ nano ~/.multimedia-toolkit/config.json
 ```
 
 **Default settings:**
-- Output directory: `~/Music/AudioExtracted/`
+- Output directory: the directory you launch the toolkit from (set a fixed override in Settings; the `MULTIMEDIA_TOOLKIT_OUTPUT_DIR` environment variable is also honored)
 - Default format: MP3
 - Default quality: music_medium
 - Auto-organize: By date (YYYY/MM/)

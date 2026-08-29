@@ -4,6 +4,7 @@
  */
 
 import { join } from 'path';
+import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import type { AppConfig, OutputFormat, VideoOutputFormat, ImageOutputFormat } from '@/types';
 import type { AppPaths } from '@/app/paths';
@@ -80,6 +81,7 @@ class ConfigManager {
     if (existsSync(this.paths.configFile)) {
       try {
         const fileConfig = JSON.parse(readFileSync(this.paths.configFile, 'utf-8'));
+        this.dropLegacyOutputDir(fileConfig);
         return { ...this.defaultConfig, ...fileConfig };
       } catch {
         console.warn('Warning: Could not parse config file, using defaults');
@@ -100,8 +102,18 @@ class ConfigManager {
     return this.defaultConfig;
   }
 
+  // Earlier versions froze the old hardcoded default into storage on first
+  // run; treat it as absent so the dynamic startup default takes over.
+  private dropLegacyOutputDir(stored: Record<string, unknown>): void {
+    const legacyDefault = join(homedir(), 'Music', 'AudioExtracted');
+    if (stored.defaultOutputDir === legacyDefault) {
+      delete stored.defaultOutputDir;
+    }
+  }
+
   private parseDbConfig(dbConfig: Record<string, string>): AppConfig {
     const config = { ...this.defaultConfig };
+    this.dropLegacyOutputDir(dbConfig);
 
     for (const [key, value] of Object.entries(dbConfig)) {
       const typedKey = key as keyof AppConfig;
@@ -132,16 +144,23 @@ class ConfigManager {
       mkdirSync(this.paths.configDir, { recursive: true });
     }
 
+    // defaultOutputDir is only persisted as an explicit user override; the
+    // dynamic startup default is re-derived on every launch instead.
+    const persistable: Record<string, unknown> = { ...configToSave };
+    if (persistable.defaultOutputDir === this.paths.defaultOutputDir) {
+      delete persistable.defaultOutputDir;
+    }
+
     // Save to file
     try {
-      writeFileSync(this.paths.configFile, JSON.stringify(configToSave, null, 2));
+      writeFileSync(this.paths.configFile, JSON.stringify(persistable, null, 2));
     } catch (error) {
       console.error('Error saving config file:', error);
     }
 
     // Save to database
     if (this.db) {
-      for (const [key, value] of Object.entries(configToSave)) {
+      for (const [key, value] of Object.entries(persistable)) {
         this.db.config.setConfig(key, String(value));
       }
     }
@@ -169,6 +188,13 @@ class ConfigManager {
 
   reset(): void {
     this.config = { ...this.defaultConfig };
+    this.saveConfig();
+  }
+
+  // Return to the dynamic startup default (env var or instantiation dir);
+  // the equality rule in saveConfig unpersists any stored override.
+  resetOutputDir(): void {
+    this.config.defaultOutputDir = this.paths.defaultOutputDir;
     this.saveConfig();
   }
 

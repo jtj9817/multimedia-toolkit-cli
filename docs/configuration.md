@@ -25,7 +25,6 @@ Complete guide to configuring Multimedia Toolkit's behavior and default settings
 **Example**:
 ```json
 {
-  "defaultOutputDir": "/home/user/Music/AudioExtracted",
   "defaultQuality": "music_medium",
   "defaultFormat": "mp3",
   "defaultVideoFormat": "webm",
@@ -47,6 +46,8 @@ Complete guide to configuring Multimedia Toolkit's behavior and default settings
 }
 ```
 
+**Note**: `defaultOutputDir` appears in the file only after you set an explicit output directory override via the Settings menu. Without an override, the output directory is derived dynamically on every launch (see below).
+
 ### Database Configuration
 
 **Location**: `~/.multimedia-toolkit/data.db`
@@ -60,7 +61,9 @@ Complete guide to configuring Multimedia Toolkit's behavior and default settings
 
 ### Environment Variables
 
-Currently not supported, but planned for future releases.
+| Variable | Purpose |
+| :--- | :--- |
+| `MULTIMEDIA_TOOLKIT_OUTPUT_DIR` | Base output directory. Sits between an explicit config override and the instantiation-directory default. |
 
 ## Configuration Options
 
@@ -68,9 +71,13 @@ Currently not supported, but planned for future releases.
 
 **Type**: String (path)
 
-**Default**: `~/Music/AudioExtracted`
+**Default**: the directory the toolkit was launched from (instantiation directory)
 
-**Description**: Base directory for all output files
+**Description**: Base directory for all output files. Resolved per launch in this order:
+
+1. Explicit override stored in `config.json` (set via the Settings menu)
+2. `MULTIMEDIA_TOOLKIT_OUTPUT_DIR` environment variable
+3. The directory the program was instantiated from (`process.cwd()` at startup)
 
 **Example**:
 ```json
@@ -78,9 +85,12 @@ Currently not supported, but planned for future releases.
 ```
 
 **Behavior**:
+- The key is only persisted when you set an explicit override; the dynamic default is never frozen into the config file
 - Directory is created automatically if it doesn't exist
 - Subdirectories created based on `organizeBy` setting
 - Must have write permissions
+- Use Settings → "Reset output directory to startup default" to remove an override
+- When choosing an output directory interactively you can browse with fzf (directories only, live fuzzy filtering of names) or type a path manually; `~` is expanded
 
 ---
 
@@ -525,30 +535,32 @@ bun run src/index.ts --interactive
 ```
 
 **Available options**:
-- `[1]` Change output directory
-- `[2]` Change default quality
-- `[3]` Change default format
-- `[4]` Change default video preset
-- `[5]` Change default video format
-- `[6]` Change default video resolution
-- `[7]` Toggle auto-organize
-- `[8]` Reset to defaults
+- `[1]` Change output directory (opens the fzf directory browser when available; manual entry otherwise)
+- `[2]` Reset output directory to startup default (removes the stored override)
+- `[3]` Change default quality
+- `[4]` Change default format
+- `[5]` Change default video preset
+- `[6]` Change default video format
+- `[7]` Change default video resolution
+- `[8]` Toggle auto-organize
+- `[9]` Reset to defaults
 
 **Example interaction**:
 ```
 Settings
 
   [1] Change output directory
-  [2] Change default quality
-  [3] Change default format
-  [4] Change default video preset
-  [5] Change default video format
-  [6] Change default video resolution
-  [7] Toggle auto-organize
-  [8] Reset to defaults
+  [2] Reset output directory to startup default
+  [3] Change default quality
+  [4] Change default format
+  [5] Change default video preset
+  [6] Change default video format
+  [7] Change default video resolution
+  [8] Toggle auto-organize
+  [9] Reset to defaults
   [0] Back
 
-Enter your choice: 2
+Enter your choice: 3
 
 Select Quality Preset
 

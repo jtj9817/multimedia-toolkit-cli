@@ -82,6 +82,7 @@ async function runExtractAudio(ctx: CommandContext): Promise<void> {
     allowRename: true,
     allowCustomPath: true
   });
+  if (!outputChoice) return;
   const outputPath = outputChoice.outputPath || ctx.organizer.getOutputPath(baseName, format);
 
   const dryRun = await ctx.cli.confirm('Dry run first?', false);
@@ -206,6 +207,7 @@ async function runClipAudio(ctx: CommandContext): Promise<void> {
     allowRename: true,
     renameLabel: 'Rename output prefix?'
   });
+  if (!outputChoice) return;
   const outputDir = outputChoice.outputDir;
 
   const jobId = randomUUID();
@@ -282,6 +284,7 @@ async function runClipVideo(ctx: CommandContext): Promise<void> {
     defaultDir: ctx.config.get('defaultOutputDir'),
     allowRename: false
   });
+  if (!outputChoice) return;
   const sourceExtension = extname(inputPath).slice(1).toLowerCase();
   if (!sourceExtension) {
     ctx.cli.error('The source video must have a filename extension to create a source-format clip.');
@@ -371,16 +374,18 @@ async function runUrlDownload(ctx: CommandContext): Promise<void> {
       renameLabel: 'Rename output prefix?'
     });
 
-    const clipResult = await ctx.ffmpeg.extractMultipleClips(
-      downloadedPath,
-      clips,
-      outputChoice.outputDir,
-      { format, quality, baseFileName: outputChoice.baseName }
-    );
+    if (outputChoice) {
+      const clipResult = await ctx.ffmpeg.extractMultipleClips(
+        downloadedPath,
+        clips,
+        outputChoice.outputDir,
+        { format, quality, baseFileName: outputChoice.baseName }
+      );
 
-    if (clipResult.success) {
-      ctx.cli.success(`Created ${clipResult.data!.outputs.length} clips`);
-      clipResult.data!.outputs.forEach(p => console.log(`  → ${p}`));
+      if (clipResult.success) {
+        ctx.cli.success(`Created ${clipResult.data!.outputs.length} clips`);
+        clipResult.data!.outputs.forEach(p => console.log(`  → ${p}`));
+      }
     }
   } else {
     ctx.cli.success(`Downloaded: ${downloadedPath}`);
@@ -450,6 +455,7 @@ async function runBatchProcess(ctx: CommandContext): Promise<void> {
     defaultDir: ctx.config.get('defaultOutputDir'),
     allowRename: false
   });
+  if (!outputChoice) return;
   const outputDir = outputChoice.outputDir;
 
   let completed = 0;
@@ -529,6 +535,7 @@ async function runChapterExtraction(ctx: CommandContext): Promise<void> {
     allowRename: true,
     renameLabel: 'Rename output prefix?'
   });
+  if (!outputChoice) return;
 
   const result = await ctx.cli.withSpinner('Extracting chapters...', () =>
     ctx.ffmpeg.extractChapters(inputPath, outputChoice.outputDir, {
@@ -570,6 +577,7 @@ async function runSilenceSplit(ctx: CommandContext): Promise<void> {
     allowRename: true,
     renameLabel: 'Rename output prefix?'
   });
+  if (!outputChoice) return;
 
   ctx.cli.info('Analyzing audio for silence...');
   const silenceResult = await ctx.ffmpeg.detectSilence(inputPath, {
@@ -629,6 +637,7 @@ async function runVideoTranscode(ctx: CommandContext): Promise<void> {
     allowRename: true,
     allowCustomPath: true
   });
+  if (!outputChoice) return;
   const outputPath = outputChoice.outputPath || ctx.organizer.getOutputPath(baseName, preset.container);
 
   const result = await ctx.cli.withSpinner('Transcoding video...', () =>
@@ -708,6 +717,7 @@ async function runGifWebpConvert(ctx: CommandContext): Promise<void> {
     allowRename: true,
     allowCustomPath: true
   });
+  if (!outputChoice) return;
   const outputPath = outputChoice.outputPath || ctx.organizer.getOutputPath(baseName, format);
 
   const dryRun = await ctx.cli.confirm('Dry run first?', false);

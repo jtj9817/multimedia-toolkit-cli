@@ -43,11 +43,17 @@ export interface FzfOptions {
    * Search depth limit
    */
   maxDepth?: number;
+
+  /**
+   * Entry type to list: files or directories
+   */
+  entryType?: 'files' | 'directories';
 }
 
-export type FzfShellOptions = Required<Omit<FzfOptions, 'directory' | 'maxDepth'>> & {
+export type FzfShellOptions = Required<Omit<FzfOptions, 'directory' | 'maxDepth' | 'entryType'>> & {
   directory: string;
   maxDepth?: number;
+  entryType?: FzfOptions['entryType'];
 };
 
 /**
@@ -58,7 +64,8 @@ function escapeForShell(arg: string): string {
 }
 
 export function buildFzfShellCommand(options: FzfShellOptions): string {
-  // Build the shell command for finding files
+  // Build the shell command for finding entries
+  const isDirectoryMode = options.entryType === 'directories';
   let findCmd = `find "${options.directory}"`;
 
   if (options.maxDepth !== undefined) {
@@ -69,10 +76,10 @@ export function buildFzfShellCommand(options: FzfShellOptions): string {
     findCmd += ` -not -path '*/\\.*'`;
   }
 
-  findCmd += ' -type f';
+  findCmd += isDirectoryMode ? ' -type d' : ' -type f';
 
-  // Add extension filters using proper shell syntax
-  if (options.extensions.length > 0) {
+  // Add extension filters using proper shell syntax (files only)
+  if (!isDirectoryMode && options.extensions.length > 0) {
     const extPatterns = options.extensions.map(ext => `-name '*.${ext}'`).join(' -o ');
     findCmd += ` \\( ${extPatterns} \\)`;
   }
@@ -247,7 +254,8 @@ export class FzfSelector {
       preview = true,
       prompt = 'Select file(s)',
       showHidden = false,
-      maxDepth = undefined
+      maxDepth = undefined,
+      entryType = 'files'
     } = options;
 
     // Check if fzf is available
@@ -280,13 +288,14 @@ export class FzfSelector {
         preview,
         prompt,
         showHidden,
-        maxDepth
+        maxDepth,
+        entryType
       });
 
       if (files.length === 0) {
         return {
           success: false,
-          error: 'No files selected'
+          error: entryType === 'directories' ? 'No directory selected' : 'No files selected'
         };
       }
 
@@ -362,5 +371,31 @@ export class FzfSelector {
       preview: true,
       prompt: multi ? 'Select media file(s)' : 'Select media file'
     });
+  }
+
+  /**
+   * Select a single directory. Candidates are directories only, so fzf's
+   * live fuzzy filtering predicts directory names as the user types.
+   */
+  async selectDirectory(options: {
+    directory?: string;
+    prompt?: string;
+    maxDepth?: number;
+  } = {}): Promise<OperationResult<string>> {
+    const result = await this.selectFiles({
+      directory: options.directory,
+      multi: false,
+      extensions: [],
+      preview: false,
+      prompt: options.prompt || 'Select directory',
+      entryType: 'directories',
+      maxDepth: options.maxDepth ?? 5
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    return { success: true, data: result.data![0] };
   }
 }

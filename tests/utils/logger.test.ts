@@ -39,7 +39,9 @@ describe('Logger', () => {
   });
 
   it('should create log directory', () => {
-    const logDir = join(ctx.config.get('defaultOutputDir'), 'logs');
+    // Loggers created through the app context keep logs with app state,
+    // decoupled from the output directory.
+    const logDir = join(ctx.paths.baseDir, 'logs');
     expect(existsSync(logDir)).toBe(true);
   });
 

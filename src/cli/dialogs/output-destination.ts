@@ -2,11 +2,12 @@
  * Output destination dialog helper for reusable output + rename prompts.
  */
 
-import { parse } from 'path';
+import { parse, resolve } from 'path';
 import type { ConfigManager } from '@/config/config';
 import type { CLIInterface } from '@/cli/interface';
 import type { OutputOrganizer } from '@/utils/logger';
 import type { ImageOutputFormat, OutputFormat, VideoOutputFormat } from '@/types';
+import { ensureDirectoryExists, expandHomePath } from '@/utils/path';
 
 type OutputExtension = OutputFormat | VideoOutputFormat | ImageOutputFormat;
 
@@ -38,7 +39,7 @@ export class OutputDestinationDialog {
     private config: ConfigManager
   ) {}
 
-  async promptForSingleOutput(options: SingleOutputDialogOptions): Promise<OutputDestinationResult> {
+  async promptForSingleOutput(options: SingleOutputDialogOptions): Promise<OutputDestinationResult | null> {
     const allowRename = options.allowRename ?? true;
     const allowCustomPath = options.allowCustomPath ?? true;
     const defaultOutputPath = this.organizer.getOutputPath(options.defaultBaseName, options.format);
@@ -67,8 +68,11 @@ export class OutputDestinationDialog {
       }
     }
 
-    const outputDirDefault = options.defaultDir || this.config.get('defaultOutputDir');
-    const outputDir = await this.cli.prompt('Output directory', outputDirDefault);
+    const outputDir = await this.chooseOutputDirectory(
+      options.defaultDir || this.config.get('defaultOutputDir')
+    );
+    if (outputDir === null) return null;
+
     const baseName = allowRename
       ? await this.promptBaseName(options.defaultBaseName, 'Rename output file?')
       : options.defaultBaseName;
@@ -81,9 +85,11 @@ export class OutputDestinationDialog {
     };
   }
 
-  async promptForOutputDirectory(options: DirectoryOutputDialogOptions): Promise<OutputDestinationResult> {
+  async promptForOutputDirectory(options: DirectoryOutputDialogOptions): Promise<OutputDestinationResult | null> {
     const outputDirDefault = options.defaultDir || this.config.get('defaultOutputDir');
-    const outputDir = await this.cli.prompt('Output directory', outputDirDefault);
+    const outputDir = await this.chooseOutputDirectory(outputDirDefault);
+    if (outputDir === null) return null;
+
     const allowRename = options.allowRename ?? true;
     const baseName = allowRename
       ? await this.promptBaseName(options.defaultBaseName, options.renameLabel || 'Rename output prefix?')
@@ -93,6 +99,63 @@ export class OutputDestinationDialog {
       outputDir,
       baseName
     };
+  }
+
+  /**
+   * Shared output-directory selection: use the default, browse with fzf
+   * (directories only, live fuzzy filtering), or type a path manually.
+   * Returns null when the user backs out; the chosen directory is created.
+   */
+  private async chooseOutputDirectory(defaultDir: string): Promise<string | null> {
+    const fzfAvailable = await this.cli.isFzfAvailable();
+    const choices: { key: 'default' | 'browse' | 'manual'; label: string }[] = [
+      { key: 'default', label: `Use default (${defaultDir})` },
+      ...(fzfAvailable
+        ? [{ key: 'browse' as const, label: 'Browse directories (fzf)' }]
+        : []),
+      { key: 'manual', label: 'Type path manually' }
+    ];
+
+    while (true) {
+      const selected = await this.cli.selectFromList('Output directory', choices, (choice) => choice.label);
+      const choice = selected[0]?.key;
+
+      if (!choice) return null; // user went back
+
+      if (choice === 'default') {
+        const prepared = this.prepareDirectory(defaultDir);
+        if (prepared !== undefined) return prepared;
+        continue;
+      }
+
+      if (choice === 'browse') {
+        const browsed = await this.cli.selectDirectoryWithFzf({
+          directory: defaultDir,
+          prompt: 'Select output directory'
+        });
+        if (!browsed) continue; // canceled browse - back to the choice menu
+        const prepared = this.prepareDirectory(browsed);
+        if (prepared !== undefined) return prepared;
+        continue;
+      }
+
+      const input = await this.cli.prompt('Output directory', defaultDir);
+      if (!input) continue; // empty input - back to the choice menu
+      const prepared = this.prepareDirectory(expandHomePath(input));
+      if (prepared !== undefined) return prepared;
+      continue;
+    }
+  }
+
+  /** Create the directory if needed; undefined signals a failure to write. */
+  private prepareDirectory(dir: string): string | undefined {
+    try {
+      ensureDirectoryExists(null, dir);
+      return resolve(dir);
+    } catch (error) {
+      this.cli.error(`Cannot create directory "${dir}": ${error instanceof Error ? error.message : String(error)}`);
+      return undefined;
+    }
   }
 
   private async promptBaseName(defaultBaseName: string, promptLabel: string): Promise<string> {

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { buildTimestampedName, buildVideoClipName, resolveOrganizedSubDir, sanitizeFileName } from '@/utils/path';
+import { buildTimestampedName, buildVideoClipName, expandHomePath, resolveOrganizedSubDir, sanitizeFileName } from '@/utils/path';
 import { createAppContext } from '@/app/context';
 import type { Clock } from '@/utils/clock';
 import { mkdtempSync, rmSync } from 'fs';
 import { join, sep } from 'path';
-import { tmpdir } from 'os';
+import { homedir, tmpdir } from 'os';
 
 class MockClock implements Clock {
   constructor(private _now: number) {}
@@ -180,6 +180,25 @@ describe('Path Utilities (Refactored)', () => {
             format: 'mp3'
         });
         expect(dir).toBe('');
+    });
+  });
+
+  describe('expandHomePath', () => {
+    it('expands a bare tilde to the home directory', () => {
+      expect(expandHomePath('~')).toBe(homedir());
+    });
+
+    it('expands a tilde-prefixed path', () => {
+      expect(expandHomePath('~/Music/clips')).toBe(join(homedir(), 'Music', 'clips'));
+    });
+
+    it('leaves absolute and relative paths untouched', () => {
+      expect(expandHomePath('/tmp/clips')).toBe('/tmp/clips');
+      expect(expandHomePath('clips/out')).toBe('clips/out');
+    });
+
+    it('does not expand tildes that are not path prefixes', () => {
+      expect(expandHomePath('/opt/~weird')).toBe('/opt/~weird');
     });
   });
 });

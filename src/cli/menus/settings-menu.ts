@@ -25,9 +25,20 @@ export class SettingsMenu extends NumberedMenu<() => Promise<void>> {
       {
         label: 'Change output directory',
         value: async () => {
-          const dir = await this.cli.prompt('New output directory', this.config.get('defaultOutputDir'));
+          const dir = await this.cli.selectDirectoryWithFzf({
+            directory: this.config.get('defaultOutputDir'),
+            prompt: 'Select output directory'
+          });
+          if (!dir) return;
           this.config.set('defaultOutputDir', dir);
           this.cli.success('Updated');
+        }
+      },
+      {
+        label: 'Reset output directory to startup default',
+        value: async () => {
+          this.config.resetOutputDir();
+          this.cli.success(`Output directory reset to ${this.config.get('defaultOutputDir')}`);
         }
       },
       {

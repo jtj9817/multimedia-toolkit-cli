@@ -37,6 +37,38 @@ describe('buildFzfShellCommand', () => {
     expect(command).toContain('--preview');
     expect(command).toContain('--preview-window=right:50%:wrap');
   });
+
+  test('directory mode lists directories only and skips extension filters', () => {
+    const command = buildFzfShellCommand({
+      directory: '.',
+      multi: false,
+      extensions: ['mp3'],
+      preview: false,
+      prompt: 'Select directory',
+      showHidden: false,
+      maxDepth: 5,
+      entryType: 'directories'
+    });
+
+    expect(command).toContain('find "."');
+    expect(command).toContain('-type d');
+    expect(command).not.toContain('-type f');
+    expect(command).not.toContain("-name '*.mp3'");
+  });
+
+  test('file mode is unchanged when entryType is absent', () => {
+    const command = buildFzfShellCommand({
+      directory: '.',
+      multi: false,
+      extensions: ['mp4'],
+      preview: false,
+      prompt: 'Select file',
+      showHidden: false
+    });
+
+    expect(command).toContain('-type f');
+    expect(command).toContain("-name '*.mp4'");
+  });
 });
 
 describe('parseFzfOutput', () => {
@@ -100,5 +132,31 @@ describe('FzfSelector', () => {
     expect(cmdArgs[1]).toBe('-c');
     expect(cmdArgs[2]).toContain('find "."');
     expect(cmdArgs[2]).toContain('fzf');
+  });
+
+  test('selectDirectory lists directories with a depth bound', async () => {
+    // Mock availability check
+    mockRun.mockResolvedValueOnce({ exitCode: 0 } as any);
+
+    // Mock selection result
+    mockRun.mockResolvedValueOnce({
+      exitCode: 0,
+      stdout: 'some/nested/dir',
+      stderr: ''
+    } as any);
+
+    const result = await fzf.selectDirectory({ directory: '.', prompt: 'Pick output dir' });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBe(resolve(process.cwd(), 'some/nested/dir'));
+
+    const calls = mockRun.mock.calls;
+    const lastCall = calls[calls.length - 1];
+    const cmd = (lastCall[0] as string[])[2];
+
+    expect(cmd).toContain('-type d');
+    expect(cmd).toContain('-maxdepth 5');
+    expect(cmd).toContain('--prompt=Pick output dir >');
+    expect(cmd).not.toContain('--preview');
   });
 });

@@ -15,6 +15,7 @@ export interface AppPathsOptions {
   defaultOutputDir?: string;
   env?: NodeJS.ProcessEnv;
   homeDir?: string;
+  cwd?: string;
 }
 
 export function resolveAppPaths(options: AppPathsOptions = {}): AppPaths {
@@ -38,7 +39,9 @@ export function resolveAppPaths(options: AppPathsOptions = {}): AppPaths {
   }
 
   const home = options.homeDir ?? homedir();
-  const defaultOutputDir = options.defaultOutputDir ?? env.MULTIMEDIA_TOOLKIT_OUTPUT_DIR ?? join(home, 'Music', 'AudioExtracted');
+  // Output defaults to the directory the program was instantiated from.
+  const cwd = options.cwd ?? process.cwd();
+  const defaultOutputDir = options.defaultOutputDir ?? env.MULTIMEDIA_TOOLKIT_OUTPUT_DIR ?? cwd;
 
   return {
     baseDir,

@@ -64,6 +64,21 @@ async function testFzfIntegration() {
     console.log(`\n   ${c.yellow}⚠${c.reset} User chose to go back (no files selected)\n`);
   }
 
+  // Test 4: Test directory selection with feedback loop (directory-only candidates)
+  console.log(`${c.yellow}Test 4:${c.reset} Testing directory selection with feedback loop`);
+  console.log(`   ${c.dim}Lists directories only; type to fuzzy-filter directory names${c.reset}\n`);
+
+  const selectedDir = await cli.selectDirectoryWithFzf({
+    directory: process.cwd(),
+    prompt: 'Select output directory'
+  });
+
+  if (selectedDir) {
+    console.log(`\n   ${c.green}✓${c.reset} Directory selected: ${c.bright}${selectedDir}${c.reset}\n`);
+  } else {
+    console.log(`\n   ${c.yellow}⚠${c.reset} User chose to go back (no directory selected)\n`);
+  }
+
   // Summary
   console.log(`${c.cyan}╔══════════════════════════════════════════════════════════╗${c.reset}`);
   console.log(`${c.cyan}║${c.reset}                  ${c.bright}Test Summary${c.reset}                           ${c.cyan}║${c.reset}`);
@@ -71,6 +86,7 @@ async function testFzfIntegration() {
   console.log(`   FZF Available: ${isAvailable ? `${c.green}Yes${c.reset}` : `${c.red}No${c.reset}`}`);
   console.log(`   Single File Selected: ${singleFile ? `${c.green}Yes${c.reset}` : `${c.yellow}No (back)${c.reset}`}`);
   console.log(`   Multiple Files Selected: ${multipleFiles.length > 0 ? `${c.green}${multipleFiles.length} file(s)${c.reset}` : `${c.yellow}None (back)${c.reset}`}`);
+  console.log(`   Directory Selected: ${selectedDir ? `${c.green}Yes${c.reset}` : `${c.yellow}No (back)${c.reset}`}`);
   console.log();
 
   cli.close();

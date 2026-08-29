@@ -81,7 +81,7 @@ export function createAppContext(options: AppContextOptions = {}): AppContext {
     dataDir: paths.baseDir
   });
   const config = createConfigManager({ paths, db });
-  const logger = new Logger({ config, db, clock });
+  const logger = new Logger({ config, db, clock, logDir: join(paths.baseDir, 'logs') });
   const organizer = new OutputOrganizer({ config, clock });
   const presets = new PresetManager({ db });
   const fzf = options.fzf ?? new FzfSelector(processRunner);

@@ -33,6 +33,7 @@ export interface LoggerDeps {
   config: ConfigManager;
   db: DatabaseManager;
   clock: Clock;
+  logDir?: string;
 }
 
 export class Logger {
@@ -46,7 +47,7 @@ export class Logger {
     this.config = deps.config;
     this.db = deps.db;
     this.clock = deps.clock;
-    this.logDir = join(this.config.get('defaultOutputDir'), 'logs');
+    this.logDir = deps.logDir ?? join(this.config.get('defaultOutputDir'), 'logs');
     this.ensureLogDir();
     this.currentLogFile = this.getLogFileName();
   }

@@ -9,6 +9,7 @@ import { QUALITY_PRESETS, OUTPUT_FORMATS, VIDEO_OUTPUT_FORMATS } from '@/types';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
 import { GIF_WEBP_PRESETS, FPS_OPTIONS, WIDTH_OPTIONS, WEBP_QUALITY_OPTIONS, GIF_DITHER_OPTIONS, getDefaultGifWebpOptions } from '@/media/gif-webp-presets';
 import { FzfSelector } from '@/utils/fzf';
+import { expandHomePath } from '@/utils/path';
 import { NumberedMenu, type NumberedChoice } from '@/cli/menus/numbered-menu';
 
 // ANSI escape regex for stripping color codes
@@ -69,6 +70,13 @@ export class CLIInterface {
       this.rl.close();
       this.rl = null;
     }
+  }
+
+  /**
+   * Check whether the fzf binary is usable
+   */
+  async isFzfAvailable(): Promise<boolean> {
+    return this.fzf.isFzfAvailable();
   }
 
   /**
@@ -608,7 +616,7 @@ export class CLIInterface {
     prompt?: string;
     allowBack?: boolean;
   } = {}): Promise<string> {
-    const fzfAvailable = await this.fzf.isFzfAvailable();
+    const fzfAvailable = await this.isFzfAvailable();
     const allowBack = options.allowBack ?? true;
 
     while (true) {
@@ -686,7 +694,7 @@ export class CLIInterface {
     prompt?: string;
     allowBack?: boolean;
   } = {}): Promise<string[]> {
-    const fzfAvailable = await this.fzf.isFzfAvailable();
+    const fzfAvailable = await this.isFzfAvailable();
     const allowBack = options.allowBack ?? true;
 
     while (true) {
@@ -760,6 +768,81 @@ export class CLIInterface {
         const files = input.split(',').map(f => f.trim()).filter(Boolean);
         if (files.length > 0) return files;
         if (allowBack) return [];
+      }
+    }
+  }
+
+  /**
+   * Select a directory using FZF with feedback loop (retry/cancel/manual options)
+   * Returns empty string if user chooses to go back
+   */
+  async selectDirectoryWithFzf(options: {
+    directory?: string;
+    prompt?: string;
+    allowBack?: boolean;
+  } = {}): Promise<string> {
+    const fzfAvailable = await this.isFzfAvailable();
+    const allowBack = options.allowBack ?? true;
+
+    while (true) {
+      if (fzfAvailable) {
+        console.log(`\n${c.cyan}╭─ Directory Selection ─────────────────────────────╮${c.reset}`);
+        console.log(`${c.cyan}│${c.reset} ${c.dim}FZF Controls:${c.reset}                                    ${c.cyan}│${c.reset}`);
+        console.log(`${c.cyan}│${c.reset}  Type to search • Enter to select • Esc to cancel  ${c.cyan}│${c.reset}`);
+        console.log(`${c.cyan}╰───────────────────────────────────────────────────╯${c.reset}\n`);
+
+        this.suspendReadline();
+        const result = await this.fzf.selectDirectory({
+          directory: options.directory,
+          prompt: options.prompt || 'Select directory'
+        });
+
+        if (result.success && result.data) {
+          // Show selected directory and confirm
+          console.log(`\n${c.green}✓${c.reset} Selected: ${c.bright}${result.data}${c.reset}\n`);
+
+          const confirmChoice = await this.runNumberedMenu('Use this directory?', [
+            { label: 'Yes, use this directory', description: 'Proceed with selected directory', value: 'y' },
+            { label: 'Reselect', description: 'Choose a different directory', value: 'r' },
+            { label: 'Manual input', description: 'Type a directory path manually', value: 'm' }
+          ], allowBack);
+
+          if (confirmChoice === 'y') {
+            return result.data;
+          } else if (confirmChoice === 'r') {
+            continue; // Loop back to FZF selection
+          } else if (confirmChoice === 'm') {
+            const manualPath = await this.prompt('Enter directory path');
+            if (manualPath) return expandHomePath(manualPath);
+            continue;
+          } else if (confirmChoice === null) {
+            return ''; // Signal to go back
+          }
+        } else {
+          // FZF was canceled or no directories found
+          console.log(`\n${c.yellow}⚠${c.reset} ${result.error || 'No directory selected'}\n`);
+
+          const retryChoice = await this.runNumberedMenu('What would you like to do?', [
+            { label: 'Retry FZF', description: 'Try selecting again', value: 'r' },
+            { label: 'Manual input', description: 'Type a directory path manually', value: 'm' }
+          ], allowBack);
+
+          if (retryChoice === 'r') {
+            continue;
+          } else if (retryChoice === 'm') {
+            const manualPath = await this.prompt('Enter directory path');
+            if (manualPath) return expandHomePath(manualPath);
+            continue;
+          } else if (retryChoice === null) {
+            return ''; // Signal to go back
+          }
+        }
+      } else {
+        // FZF not available - use manual input
+        console.log(`\n${c.yellow}⚠${c.reset} FZF not installed. Install with: ${c.cyan}sudo apt install fzf${c.reset}\n`);
+        const manualPath = await this.prompt(options.prompt || 'Enter directory path');
+        if (manualPath) return expandHomePath(manualPath);
+        if (allowBack) return '';
       }
     }
   }
