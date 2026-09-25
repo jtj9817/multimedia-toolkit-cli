@@ -20,7 +20,9 @@ import type {
   VideoOutputFormat,
   GifWebpConversionOptions,
   VideoClipOptions,
-  VideoClipTranscodeOptions
+  VideoClipTranscodeOptions,
+  FrameRateInfo,
+  EncoderFrameRate
 } from '@/types';
 import { QUALITY_PRESETS } from '@/types';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
@@ -44,6 +46,37 @@ const VIDEO_MUXER_NAMES: Record<VideoOutputFormat, string> = {
   mp4: 'mp4',
   mkv: 'matroska'
 };
+
+// Share of a target-size budget handed to the encoder; the rest absorbs container
+// overhead and rate-control variance.
+const TARGET_SIZE_HEADROOM = 0.96;
+// Below this, VP9/H.264 output is unwatchable at typical resolutions.
+const MIN_TARGET_VIDEO_KBPS = 100;
+
+// A declared frame rate within 1% of the measured one is treated as constant frame rate.
+const FRAME_RATE_TOLERANCE = 0.01;
+// Millisecond-rounded timestamps (MKV/WebM) make CFR intervals jitter by up to ~4%.
+const PEAK_JITTER_TOLERANCE = 0.05;
+// Average rates above this only come from broken metadata.
+const MAX_PLAUSIBLE_FPS = 1000;
+// Finest frame grid used for VFR sources; closer frame spacing is treated as timestamp noise.
+const MAX_ENCODER_FPS = 240;
+
+/** Parse an FFprobe rational such as "30000/1001"; null for missing or 0/0 values. */
+function parseRational(value?: string): number | null {
+  const [num, den = '1'] = (value ?? '').split('/');
+  const result = Number(num) / Number(den);
+  return Number.isFinite(result) && result > 0 ? result : null;
+}
+
+/** Parse an FFmpeg bitrate string such as "128k" or "1.5M" into kbps (0 when absent). */
+function parseBitrateKbps(bitrate?: string | null): number {
+  const match = bitrate?.trim().match(/^(\d+(?:\.\d+)?)([kKmM]?)$/);
+  if (!match) return 0;
+  const value = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  return unit === 'm' ? value * 1000 : unit === 'k' ? value : value / 1000;
+}
 
 /** Replace the value of each `-flag value` pair in `base` found in `overrides`, appending new flags. */
 function overrideArgs(base: string[], overrides: string[]): string[] {
@@ -256,6 +289,77 @@ export class FFmpegWrapper {
     outputPath: string,
     options: VideoTranscodeOptions = {}
   ): Promise<OperationResult<{ command: string; outputPath: string }>> {
+    if (options.targetSizeMB === undefined) {
+      return this.encodeVideo(inputPath, outputPath, options);
+    }
+    return this.transcodeToTargetSize(inputPath, outputPath, options, options.targetSizeMB);
+  }
+
+  /**
+   * Fit the output under a file-size limit (e.g. an upload cap). The video bitrate is
+   * derived from the input duration and used as a ceiling; one retry at a proportionally
+   * lower bitrate covers encoder overshoot.
+   */
+  private async transcodeToTargetSize(
+    inputPath: string,
+    outputPath: string,
+    options: VideoTranscodeOptions,
+    targetSizeMB: number
+  ): Promise<OperationResult<{ command: string; outputPath: string }>> {
+    if (!Number.isFinite(targetSizeMB) || targetSizeMB <= 0) {
+      return { success: false, error: 'Target size must be a positive number of megabytes.' };
+    }
+
+    const duration = options.durationSeconds ?? await this.getDuration(inputPath);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return { success: false, error: 'Cannot determine input duration, which target-size encoding requires.' };
+    }
+
+    const preset = this.resolveVideoPreset(options);
+    const audioKbps = parseBitrateKbps(options.audioBitrate || preset.audio.bitrate);
+    const targetBytes = targetSizeMB * 1_000_000;
+    let videoKbps = Math.floor((targetBytes * 8 / 1000) * TARGET_SIZE_HEADROOM / duration - audioKbps);
+
+    for (let attempt = 1; ; attempt++) {
+      if (videoKbps < MIN_TARGET_VIDEO_KBPS) {
+        const minimumMB = Math.ceil(
+          (MIN_TARGET_VIDEO_KBPS + audioKbps) * duration / 8 / 1000 / TARGET_SIZE_HEADROOM
+        );
+        return {
+          success: false,
+          error: `A ${targetSizeMB} MB target is too small for ${duration.toFixed(1)}s of video; ` +
+            `use at least ${minimumMB} MB, a shorter clip, or a lower resolution.`
+        };
+      }
+
+      const result = await this.encodeVideo(inputPath, outputPath, options, videoKbps);
+      if (!result.success || options.dryRun) {
+        return result;
+      }
+
+      const actualBytes = statSync(outputPath).size;
+      if (actualBytes <= targetBytes) {
+        return result;
+      }
+      if (attempt >= 2) {
+        return {
+          ...result,
+          warnings: [
+            ...(result.warnings ?? []),
+            `Output is ${(actualBytes / 1_000_000).toFixed(2)} MB, above the ${targetSizeMB} MB target.`
+          ]
+        };
+      }
+      videoKbps = Math.floor(videoKbps * (targetBytes / actualBytes) * TARGET_SIZE_HEADROOM);
+    }
+  }
+
+  private async encodeVideo(
+    inputPath: string,
+    outputPath: string,
+    options: VideoTranscodeOptions,
+    maxVideoKbps?: number
+  ): Promise<OperationResult<{ command: string; outputPath: string }>> {
     const preset = this.resolveVideoPreset(options);
     const preserveMetadata = options.preserveMetadata ?? this.config.get('preserveMetadata');
 
@@ -277,6 +381,34 @@ export class FFmpegWrapper {
       bitrate: options.audioBitrate || preset.audio.bitrate
     };
 
+    const usesPresetCodec = videoSettings.codec === preset.video.codec;
+    const twoPass = preset.video.twoPass && usesPresetCodec && options.twoPass !== false
+      ? preset.video.twoPass
+      : undefined;
+
+    // Two-pass rate control budgets bits per frame from the encoder's frame rate, which
+    // FFmpeg takes from the declared r_frame_rate. Variable-frame-rate sources often
+    // declare a rate far from reality (e.g. 120 fps for ~30 fps video), which makes a
+    // bitrate target miss by the same factor. Always hand the encoder a measured rate.
+    const bitrateDriven = maxVideoKbps !== undefined
+      || (videoSettings.qualityMode === 'bitrate' && Boolean(videoSettings.bitrate));
+    let frameRate: EncoderFrameRate | undefined;
+    if (twoPass && bitrateDriven) {
+      frameRate = options.frameRate;
+      if (!frameRate) {
+        const detected = await this.detectFrameRate(inputPath);
+        if (!detected.success) {
+          return {
+            success: false,
+            error: `${detected.error} Two-pass bitrate targeting needs the real frame rate; ` +
+              'rerun with --single-pass to encode from timestamps instead.'
+          };
+        }
+        frameRate = detected.data!;
+      }
+    }
+    const scaleKbps = (kbps: number) => Math.round(kbps * (frameRate?.bitrateScale ?? 1));
+
     const videoArgs: string[] = [];
 
     const scaleFilter = this.buildScaleFilter(videoSettings.scale);
@@ -290,17 +422,31 @@ export class FFmpegWrapper {
       videoArgs.push('-pix_fmt', videoSettings.pixelFormat);
     }
 
-    if (videoSettings.qualityMode === 'crf' && videoSettings.crf !== undefined) {
+    if (frameRate) {
+      videoArgs.push('-r', frameRate.rate);
+    }
+
+    if (maxVideoKbps !== undefined) {
+      const kbps = scaleKbps(maxVideoKbps);
+      if (videoSettings.codec === 'libvpx-vp9' && videoSettings.crf !== undefined) {
+        // Constrained quality: CRF drives quality, -b:v caps the average bitrate.
+        videoArgs.push('-crf', String(videoSettings.crf), '-b:v', `${kbps}k`);
+      } else {
+        videoArgs.push('-b:v', `${kbps}k`, '-maxrate', `${kbps}k`, '-bufsize', `${kbps * 2}k`);
+      }
+    } else if (videoSettings.qualityMode === 'crf' && videoSettings.crf !== undefined) {
       if (videoSettings.codec === 'libvpx-vp9') {
         videoArgs.push('-b:v', '0');
       }
       videoArgs.push('-crf', String(videoSettings.crf));
     } else if (videoSettings.qualityMode === 'bitrate' && videoSettings.bitrate) {
-      videoArgs.push('-b:v', videoSettings.bitrate);
+      const scaled = frameRate && frameRate.bitrateScale !== 1
+        ? `${scaleKbps(parseBitrateKbps(videoSettings.bitrate))}k`
+        : videoSettings.bitrate;
+      videoArgs.push('-b:v', scaled);
     }
 
     // Preset encoder flags are codec-specific; skip them when the codec is overridden.
-    const usesPresetCodec = videoSettings.codec === preset.video.codec;
     if (preset.video.ffmpegArgs?.length && usesPresetCodec) {
       videoArgs.push(...preset.video.ffmpegArgs);
     }
@@ -319,9 +465,6 @@ export class FFmpegWrapper {
       audioArgs.push(...audioSettings.ffmpegArgs);
     }
 
-    const twoPass = preset.video.twoPass && usesPresetCodec && options.twoPass !== false
-      ? preset.video.twoPass
-      : undefined;
     const passLogPrefix = twoPass ? join(tmpdir(), `mat-2pass-${randomUUID()}`) : null;
 
     const args: string[] = ['-y', '-i', inputPath, ...videoArgs];
@@ -472,6 +615,10 @@ export class FFmpegWrapper {
 
     const transcodeResult = await this.transcodeVideo(intermediatePath, outputPath, {
       ...options.transcode,
+      // A dry run has no intermediate to probe; real runs probe it because keyframe-aligned
+      // stream copies can run slightly longer than the requested range.
+      durationSeconds: options.dryRun ? this.getClipDurationSeconds(options.clip) : undefined,
+      frameRate: options.transcode.frameRate ?? (options.dryRun ? await this.dryRunFrameRate(inputPath) : undefined),
       preserveMetadata: options.preserveMetadata ?? options.transcode.preserveMetadata,
       dryRun: options.dryRun
     });
@@ -491,11 +638,116 @@ export class FFmpegWrapper {
       this.removeFile(intermediatePath);
     }
 
+    const transcodeWarnings = (transcodeResult.warnings ?? [])
+      .filter(warning => !clipResult.warnings?.includes(warning));
     return {
       success: true,
       data: { command, outputPath },
-      warnings: clipResult.warnings
+      warnings: [...(clipResult.warnings ?? []), ...transcodeWarnings]
     };
+  }
+
+  /**
+   * Measure the real frame rate of the first (non cover-art) video stream.
+   *
+   * Strict rule: container metadata is never trusted for the rate. r_frame_rate is a
+   * guess (VFR uploads declare 60-240 fps for ~30 fps video, or less than the real
+   * rate), container frame counts include edit-list pre-roll, and MKV/WebM durations
+   * include audio. The rate is measured from the stream's own packet timestamps,
+   * without decoding: (packets - 1) / (last pts - first pts). When the declared rate
+   * agrees within FRAME_RATE_TOLERANCE the source is constant frame rate and the exact
+   * declared fraction is returned; otherwise the measured rate is. A stream that
+   * cannot be measured, or measures implausibly, is an error, never a guess.
+   */
+  async detectFrameRate(inputPath: string): Promise<OperationResult<FrameRateInfo>> {
+    const fail = (reason: string): OperationResult<FrameRateInfo> => ({
+      success: false,
+      error: `Could not measure the frame rate of ${inputPath}: ${reason}.`
+    });
+
+    try {
+      const probe = await this.processRunner.run([
+        this.ffprobePath,
+        '-v', 'error',
+        '-select_streams', 'V:0',
+        '-show_entries', 'stream=r_frame_rate',
+        '-print_format', 'json',
+        inputPath
+      ], { stdout: 'pipe', stderr: 'pipe' });
+      if (probe.exitCode !== 0) {
+        return fail(`FFprobe failed (${probe.stderr.trim()})`);
+      }
+      const stream = (JSON.parse(probe.stdout) as { streams?: Array<{ r_frame_rate?: string }> }).streams?.[0];
+      if (!stream) {
+        return fail('no video stream');
+      }
+
+      const packets = await this.processRunner.run([
+        this.ffprobePath,
+        '-v', 'error',
+        '-select_streams', 'V:0',
+        '-show_entries', 'packet=pts_time,dts_time',
+        '-print_format', 'csv=p=0',
+        inputPath
+      ], { stdout: 'pipe', stderr: 'pipe' });
+      if (packets.exitCode !== 0) {
+        return fail(`FFprobe could not read packets (${packets.stderr.trim()})`);
+      }
+
+      const lines = packets.stdout.split('\n').filter(line => line.trim());
+      const times = new Float64Array(lines.length);
+      for (let index = 0; index < lines.length; index++) {
+        const [pts, dts] = lines[index].split(',').map(value => Number.parseFloat(value));
+        const time = Number.isFinite(pts) ? pts : dts;
+        if (!Number.isFinite(time)) {
+          return fail('a video packet has no timestamp');
+        }
+        times[index] = time;
+      }
+      if (times.length < 2) {
+        return fail('fewer than two video frames');
+      }
+
+      // Sort into presentation order: B-frame packets are stored out of order.
+      times.sort();
+      const frameCount = times.length;
+      const span = times[frameCount - 1] - times[0];
+      const fps = (frameCount - 1) / span;
+      if (!Number.isFinite(fps) || fps <= 0 || fps > MAX_PLAUSIBLE_FPS) {
+        return fail(`implausible measured rate (${frameCount} frames over ${span.toFixed(3)}s)`);
+      }
+
+      let minInterval = Infinity;
+      for (let index = 1; index < frameCount; index++) {
+        const interval = times[index] - times[index - 1];
+        if (interval > 0) minInterval = Math.min(minInterval, interval);
+      }
+      const peakFps = 1 / minInterval;
+
+      const declaredFps = parseRational(stream.r_frame_rate);
+      const constant = declaredFps !== null
+        && Math.abs(declaredFps - fps) / fps <= FRAME_RATE_TOLERANCE
+        && peakFps <= declaredFps * (1 + PEAK_JITTER_TOLERANCE);
+      if (constant) {
+        return {
+          success: true,
+          data: { rate: stream.r_frame_rate!, bitrateScale: 1, fps, peakFps, declaredFps, variable: false, frameCount }
+        };
+      }
+
+      // Variable frame rate: FFmpeg snaps each frame onto a 1/rate grid and drops frames
+      // that collide, so the grid must be as fine as the fastest frame spacing. The
+      // encoder then assumes rate frames per second, so bitrates are scaled by
+      // rate / fps to keep the budget per real second.
+      const encoderFps = Math.min(Math.max(peakFps, fps), MAX_ENCODER_FPS);
+      const rate = Math.ceil(encoderFps * 1000) / 1000;
+      return {
+        success: true,
+        data: { rate: String(rate), bitrateScale: rate / fps, fps, peakFps, declaredFps, variable: true, frameCount }
+      };
+    } catch (error) {
+      return fail(String(error));
+    }
   }
 
   /** Validate that a produced video is non-empty and readable by FFprobe. */
@@ -1350,10 +1602,8 @@ export class FFmpegWrapper {
     preserveMetadata: boolean
   ): string[] {
     const args = ['-y', '-ss', clip.startTime, '-i', inputPath];
-    if (clip.duration !== undefined) {
-      args.push('-t', String(clip.duration));
-    } else if (clip.endTime) {
-      const duration = this.parseTimeToSeconds(clip.endTime) - this.parseTimeToSeconds(clip.startTime);
+    const duration = this.getClipDurationSeconds(clip);
+    if (duration !== undefined) {
       args.push('-t', String(duration));
     }
     args.push('-map', '0', '-c', 'copy');
@@ -1362,6 +1612,22 @@ export class FFmpegWrapper {
     }
     args.push('-threads', '0', outputPath);
     return args;
+  }
+
+  /** A dry-run clip has no intermediate yet, so measure its source (stream copy keeps timing). */
+  private async dryRunFrameRate(inputPath: string): Promise<EncoderFrameRate | undefined> {
+    const detected = await this.detectFrameRate(inputPath);
+    return detected.success ? detected.data! : undefined;
+  }
+
+  private getClipDurationSeconds(clip: TimeClip): number | undefined {
+    if (clip.duration !== undefined) {
+      return clip.duration;
+    }
+    if (clip.endTime) {
+      return this.parseTimeToSeconds(clip.endTime) - this.parseTimeToSeconds(clip.startTime);
+    }
+    return undefined;
   }
 
   private validateTimeClip(clip: TimeClip): string | null {

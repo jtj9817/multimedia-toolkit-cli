@@ -48,6 +48,7 @@ function parseArguments() {
       resolution: { type: 'string' },
       'video-preset': { type: 'string' },
       'single-pass': { type: 'boolean' },
+      'target-size': { type: 'string' },
 
       // Clipping options
       start: { type: 'string', short: 's' },
@@ -116,6 +117,7 @@ ${'\x1b[33m'}OUTPUT OPTIONS:${'\x1b[0m'}
   --resolution <size>     Video resolution: source, 2160p, 1440p, 1080p, 720p, 480p
   --video-preset <key>    Video preset: any-to-webm, any-to-mp4, any-to-mkv
   --single-pass           Skip two-pass encoding (faster WebM, slightly larger files)
+  --target-size <MB>      Keep video output under this size (e.g. 10 for Discord)
 
 ${'\x1b[33m'}CLIPPING OPTIONS:${'\x1b[0m'}
   -s, --start <time>      Start time (HH:MM:SS or seconds)
@@ -288,7 +290,18 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
   const videoQualityInput = values['video-quality'] as string | undefined;
   const resolutionInput = values.resolution as string | undefined;
   const twoPass = values['single-pass'] ? false : undefined;
-  const isVideoTranscode = Boolean(videoPresetInput || videoFormatInput || videoQualityInput || resolutionInput);
+  const targetSizeInput = values['target-size'] as string | undefined;
+  let targetSizeMB: number | undefined;
+  if (targetSizeInput !== undefined) {
+    targetSizeMB = Number(targetSizeInput);
+    if (!Number.isFinite(targetSizeMB) || targetSizeMB <= 0) {
+      cli.error('Target size must be a positive number of megabytes, e.g. --target-size 10.');
+      process.exit(1);
+    }
+  }
+  const isVideoTranscode = Boolean(
+    videoPresetInput || videoFormatInput || videoQualityInput || resolutionInput || targetSizeInput
+  );
   const videoClipValues = (values['video-clip'] as string[] | undefined) || [];
   const hasTimingShorthand = Boolean(values.start || values.end || values.duration);
   const isVideoClip = videoClipValues.length > 0 || (isVideoTranscode && hasTimingShorthand);
@@ -355,8 +368,12 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
         process.exit(1);
       }
     }
+    if (targetSizeMB !== undefined && qualityMode === 'bitrate') {
+      cli.error('Use either a --video-quality bitrate or --target-size, not both.');
+      process.exit(1);
+    }
 
-    const transcodeRequested = Boolean(videoPresetInput || videoFormatInput || videoQualityInput || resolutionInput);
+    const transcodeRequested = isVideoTranscode;
     const outputDir = values.output as string || config.getOutputDir();
     if (existsSync(outputDir) && !statSync(outputDir).isDirectory()) {
       cli.error('Video clip output must be a directory so generated clip names can be preserved.');
@@ -392,7 +409,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
               clip: validClips[index],
               preserveMetadata,
               dryRun,
-              transcode: { presetKey, resolution, qualityMode, crf, bitrate, twoPass, preserveMetadata, dryRun }
+              transcode: { presetKey, resolution, qualityMode, crf, bitrate, twoPass, targetSizeMB, preserveMetadata, dryRun }
             })
           : await ffmpeg.clipVideo(input, outputPath, { clip: validClips[index], preserveMetadata, dryRun });
         if (!result.success) {
@@ -403,6 +420,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
           logger.info(`[DRY RUN] ${result.data!.command}`);
         } else {
           logger.success(`Created: ${result.data!.outputPath}`);
+          result.warnings?.forEach(warning => logger.warn(warning));
           if (transcodeRequested) {
             logVideoProcess(
               { db, logger, clock },
@@ -464,6 +482,10 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
         process.exit(1);
       }
     }
+    if (targetSizeMB !== undefined && qualityMode === 'bitrate') {
+      cli.error('Use either a --video-quality bitrate or --target-size, not both.');
+      process.exit(1);
+    }
 
     const preset = VIDEO_TRANSCODE_PRESETS[presetKey];
     const dryRun = values['dry-run'] as boolean || false;
@@ -497,6 +519,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
         crf,
         bitrate,
         twoPass,
+        targetSizeMB,
         preserveMetadata,
         dryRun
       });
@@ -506,6 +529,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
           logger.info(`[DRY RUN] ${result.data!.command}`);
         } else {
           logger.success(`Created: ${result.data!.outputPath}`);
+          result.warnings?.forEach(warning => logger.warn(warning));
           logVideoProcess(
             { db, logger, clock },
             {

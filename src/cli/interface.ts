@@ -350,6 +350,28 @@ export class CLIInterface {
   }
 
   /**
+   * Select an optional output size limit for video transcodes.
+   * Returns the limit in MB, undefined for quality-based sizing, or null to go back.
+   */
+  async selectVideoSizeLimit(): Promise<number | undefined | null> {
+    const choice = await this.runNumberedMenu<'none' | 'discord' | 'custom'>('Output Size Limit', [
+      { label: 'No limit', description: 'Quality-based (CRF) sizing', value: 'none' },
+      { label: '10 MB', description: 'Discord free upload limit', value: 'discord' },
+      { label: 'Custom…', description: 'Enter a limit in MB', value: 'custom' }
+    ]);
+    if (choice === null) return null;
+    if (choice === 'none') return undefined;
+    if (choice === 'discord') return 10;
+
+    while (true) {
+      const answer = await this.prompt('Maximum size in MB');
+      const megabytes = Number(answer);
+      if (Number.isFinite(megabytes) && megabytes > 0) return megabytes;
+      this.error('Enter a positive number, e.g. 25 or 8.5');
+    }
+  }
+
+  /**
    * Select video output format
    */
   async selectVideoFormat(defaultValue?: VideoOutputFormat): Promise<VideoOutputFormat | null> {

@@ -129,8 +129,33 @@ export interface VideoTranscodeOptions {
   audioBitrate?: string;
   /** Set to false to force a single pass on presets that default to two-pass encoding. */
   twoPass?: boolean;
+  /** Keep the output under this size (1 MB = 1,000,000 bytes), e.g. an upload limit. */
+  targetSizeMB?: number;
+  /** Known input duration; skips probing when sizing a target-size encode. */
+  durationSeconds?: number;
+  /** Known encoder frame rate plan; skips detection for two-pass bitrate encodes. */
+  frameRate?: EncoderFrameRate;
   preserveMetadata?: boolean;
   dryRun?: boolean;
+}
+
+/** Frame grid and bitrate correction handed to a two-pass bitrate encode. */
+export interface EncoderFrameRate {
+  /** FFmpeg -r value: the exact declared fraction for CFR, the peak frame rate for VFR. */
+  rate: string;
+  /** Multiply bitrate targets by this so the per-frame budget matches the real rate. */
+  bitrateScale: number;
+}
+
+/** Result of measuring a video stream's real frame rate from its packet timestamps. */
+export interface FrameRateInfo extends EncoderFrameRate {
+  /** Average rate: (frames - 1) / timestamp span. */
+  fps: number;
+  /** Rate implied by the smallest gap between consecutive frames. */
+  peakFps: number;
+  declaredFps: number | null;
+  variable: boolean;
+  frameCount: number;
 }
 
 /** Options for a stream-copy video clip. Stream copying is fast and lossless,

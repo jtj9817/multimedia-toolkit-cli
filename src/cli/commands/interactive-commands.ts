@@ -626,6 +626,8 @@ async function runVideoTranscode(ctx: CommandContext): Promise<void> {
   if (presetKey === null) return;
   const resolution = await ctx.cli.selectVideoResolution(ctx.config.get('defaultVideoResolution'));
   if (resolution === null) return;
+  const targetSizeMB = await ctx.cli.selectVideoSizeLimit();
+  if (targetSizeMB === null) return;
   const preset = VIDEO_TRANSCODE_PRESETS[presetKey];
 
   const baseName = basename(inputPath).replace(/\.[^.]+$/, '');
@@ -644,12 +646,14 @@ async function runVideoTranscode(ctx: CommandContext): Promise<void> {
     ctx.ffmpeg.transcodeVideo(inputPath, outputPath, {
       presetKey,
       resolution,
+      targetSizeMB,
       preserveMetadata: ctx.config.get('preserveMetadata')
     })
   );
 
   if (result.success) {
     ctx.cli.success(`Created: ${result.data!.outputPath}`);
+    result.warnings?.forEach(warning => ctx.cli.warn(warning));
     logVideoProcess(
       { db: ctx.db, logger: ctx.logger, clock: ctx.clock },
       {
