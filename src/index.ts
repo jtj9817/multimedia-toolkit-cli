@@ -47,6 +47,7 @@ function parseArguments() {
       'video-quality': { type: 'string' },
       resolution: { type: 'string' },
       'video-preset': { type: 'string' },
+      'single-pass': { type: 'boolean' },
 
       // Clipping options
       start: { type: 'string', short: 's' },
@@ -114,6 +115,7 @@ ${'\x1b[33m'}OUTPUT OPTIONS:${'\x1b[0m'}
   --video-quality <val>   Video quality (CRF number or bitrate like 2500k)
   --resolution <size>     Video resolution: source, 2160p, 1440p, 1080p, 720p, 480p
   --video-preset <key>    Video preset: any-to-webm, any-to-mp4, any-to-mkv
+  --single-pass           Skip two-pass encoding (faster WebM, slightly larger files)
 
 ${'\x1b[33m'}CLIPPING OPTIONS:${'\x1b[0m'}
   -s, --start <time>      Start time (HH:MM:SS or seconds)
@@ -285,6 +287,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
   const videoFormatInput = values['video-format'] as string | undefined;
   const videoQualityInput = values['video-quality'] as string | undefined;
   const resolutionInput = values.resolution as string | undefined;
+  const twoPass = values['single-pass'] ? false : undefined;
   const isVideoTranscode = Boolean(videoPresetInput || videoFormatInput || videoQualityInput || resolutionInput);
   const videoClipValues = (values['video-clip'] as string[] | undefined) || [];
   const hasTimingShorthand = Boolean(values.start || values.end || values.duration);
@@ -389,7 +392,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
               clip: validClips[index],
               preserveMetadata,
               dryRun,
-              transcode: { presetKey, resolution, qualityMode, crf, bitrate, preserveMetadata, dryRun }
+              transcode: { presetKey, resolution, qualityMode, crf, bitrate, twoPass, preserveMetadata, dryRun }
             })
           : await ffmpeg.clipVideo(input, outputPath, { clip: validClips[index], preserveMetadata, dryRun });
         if (!result.success) {
@@ -493,6 +496,7 @@ async function runCliMode(app: AppContext, values: Record<string, unknown>, posi
         qualityMode,
         crf,
         bitrate,
+        twoPass,
         preserveMetadata,
         dryRun
       });

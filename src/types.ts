@@ -40,6 +40,8 @@ export interface VideoPresetVideoSettings {
   scale: VideoScaleSettings;
   /** Encoder-specific flags (speed, threading), applied only while `codec` is in use. */
   ffmpegArgs?: string[];
+  /** Two-pass encoding; `firstPassArgs` override flag values for the statistics pass. */
+  twoPass?: { firstPassArgs?: string[] };
 }
 
 export interface VideoPresetAudioSettings {
@@ -125,6 +127,8 @@ export interface VideoTranscodeOptions {
   crf?: number;
   bitrate?: string;
   audioBitrate?: string;
+  /** Set to false to force a single pass on presets that default to two-pass encoding. */
+  twoPass?: boolean;
   preserveMetadata?: boolean;
   dryRun?: boolean;
 }

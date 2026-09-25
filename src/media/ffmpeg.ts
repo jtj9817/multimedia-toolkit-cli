@@ -26,6 +26,9 @@ import { QUALITY_PRESETS } from '@/types';
 import { VIDEO_TRANSCODE_PRESETS } from '@/media/video-presets';
 import type { ProcessRunner } from '@/utils/process-runner';
 import { existsSync, statSync, unlinkSync } from 'fs';
+import { devNull, tmpdir } from 'os';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
 
 const WEBM_OPUS_ARGS = ['-vbr', 'on', '-compression_level', '10', '-application', 'audio'];
 const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = {
@@ -41,6 +44,20 @@ const VIDEO_MUXER_NAMES: Record<VideoOutputFormat, string> = {
   mp4: 'mp4',
   mkv: 'matroska'
 };
+
+/** Replace the value of each `-flag value` pair in `base` found in `overrides`, appending new flags. */
+function overrideArgs(base: string[], overrides: string[]): string[] {
+  const result = [...base];
+  for (let i = 0; i < overrides.length; i += 2) {
+    const index = result.indexOf(overrides[i]);
+    if (index >= 0) {
+      result[index + 1] = overrides[i + 1];
+    } else {
+      result.push(overrides[i], overrides[i + 1]);
+    }
+  }
+  return result;
+}
 
 export class FFmpegWrapper {
   private ffmpegPath: string;
@@ -260,46 +277,58 @@ export class FFmpegWrapper {
       bitrate: options.audioBitrate || preset.audio.bitrate
     };
 
-    const args: string[] = ['-y', '-i', inputPath];
+    const videoArgs: string[] = [];
 
     const scaleFilter = this.buildScaleFilter(videoSettings.scale);
     if (scaleFilter) {
-      args.push('-vf', scaleFilter);
+      videoArgs.push('-vf', scaleFilter);
     }
 
-    args.push('-c:v', videoSettings.codec);
+    videoArgs.push('-c:v', videoSettings.codec);
 
     if (videoSettings.pixelFormat) {
-      args.push('-pix_fmt', videoSettings.pixelFormat);
+      videoArgs.push('-pix_fmt', videoSettings.pixelFormat);
     }
 
     if (videoSettings.qualityMode === 'crf' && videoSettings.crf !== undefined) {
       if (videoSettings.codec === 'libvpx-vp9') {
-        args.push('-b:v', '0');
+        videoArgs.push('-b:v', '0');
       }
-      args.push('-crf', String(videoSettings.crf));
+      videoArgs.push('-crf', String(videoSettings.crf));
     } else if (videoSettings.qualityMode === 'bitrate' && videoSettings.bitrate) {
-      args.push('-b:v', videoSettings.bitrate);
+      videoArgs.push('-b:v', videoSettings.bitrate);
     }
 
     // Preset encoder flags are codec-specific; skip them when the codec is overridden.
-    if (preset.video.ffmpegArgs?.length && videoSettings.codec === preset.video.codec) {
-      args.push(...preset.video.ffmpegArgs);
+    const usesPresetCodec = videoSettings.codec === preset.video.codec;
+    if (preset.video.ffmpegArgs?.length && usesPresetCodec) {
+      videoArgs.push(...preset.video.ffmpegArgs);
     }
 
-    args.push('-c:a', audioSettings.codec);
+    const audioArgs: string[] = ['-c:a', audioSettings.codec];
     if (audioSettings.bitrate) {
-      args.push('-b:a', audioSettings.bitrate);
+      audioArgs.push('-b:a', audioSettings.bitrate);
     }
     if (audioSettings.sampleRate) {
-      args.push('-ar', String(audioSettings.sampleRate));
+      audioArgs.push('-ar', String(audioSettings.sampleRate));
     }
     if (audioSettings.channels) {
-      args.push('-ac', String(audioSettings.channels));
+      audioArgs.push('-ac', String(audioSettings.channels));
     }
     if (audioSettings.ffmpegArgs?.length) {
-      args.push(...audioSettings.ffmpegArgs);
+      audioArgs.push(...audioSettings.ffmpegArgs);
     }
+
+    const twoPass = preset.video.twoPass && usesPresetCodec && options.twoPass !== false
+      ? preset.video.twoPass
+      : undefined;
+    const passLogPrefix = twoPass ? join(tmpdir(), `mat-2pass-${randomUUID()}`) : null;
+
+    const args: string[] = ['-y', '-i', inputPath, ...videoArgs];
+    if (passLogPrefix) {
+      args.push('-pass', '2', '-passlogfile', passLogPrefix);
+    }
+    args.push(...audioArgs);
 
     if (!preserveMetadata) {
       args.push('-map_metadata', '-1');
@@ -309,7 +338,22 @@ export class FFmpegWrapper {
     args.push('-threads', '0');
     args.push(outputPath);
 
-    const fullCommand = `${this.ffmpegPath} ${args.join(' ')}`;
+    // Pass 1 only gathers rate-control statistics, so audio/subtitles are dropped
+    // and the encode is discarded (FFmpeg docs: "-pass 1 -an -f null").
+    const firstPassArgs = passLogPrefix
+      ? [
+          '-y', '-i', inputPath,
+          ...overrideArgs(videoArgs, twoPass?.firstPassArgs ?? []),
+          '-pass', '1', '-passlogfile', passLogPrefix,
+          '-an', '-sn', '-dn',
+          '-f', 'null', '-threads', '0', devNull
+        ]
+      : null;
+
+    const secondPassCommand = `${this.ffmpegPath} ${args.join(' ')}`;
+    const fullCommand = firstPassArgs
+      ? `${this.ffmpegPath} ${firstPassArgs.join(' ')} && ${secondPassCommand}`
+      : secondPassCommand;
 
     if (options.dryRun) {
       return {
@@ -320,6 +364,16 @@ export class FFmpegWrapper {
     }
 
     try {
+      if (firstPassArgs) {
+        const firstPass = await this.processRunner.run([this.ffmpegPath, ...firstPassArgs], {
+          stdout: 'pipe',
+          stderr: 'pipe'
+        });
+        if (firstPass.exitCode !== 0) {
+          return { success: false, error: `FFmpeg first pass failed: ${firstPass.stderr}` };
+        }
+      }
+
       const result = await this.processRunner.run([this.ffmpegPath, ...args], {
         stdout: 'pipe',
         stderr: 'pipe'
@@ -331,6 +385,11 @@ export class FFmpegWrapper {
       return { success: true, data: { command: fullCommand, outputPath } };
     } catch (error) {
       return { success: false, error: `Transcode failed: ${error}` };
+    } finally {
+      if (passLogPrefix) {
+        // libvpx writes one "<prefix>-<stream index>.log" stats file per encoded stream.
+        this.removeFile(`${passLogPrefix}-0.log`);
+      }
     }
   }
 

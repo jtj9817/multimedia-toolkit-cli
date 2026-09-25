@@ -17,7 +17,10 @@ export const VIDEO_TRANSCODE_PRESETS: Record<VideoPresetKey, VideoTranscodePrese
       },
       // libvpx defaults to cpu-used 1 with row-mt off, which barely uses more than a
       // few cores. These cut 1080p encode time ~3x with a negligible SSIM change.
-      ffmpegArgs: ['-deadline', 'good', '-cpu-used', '2', '-row-mt', '1', '-tile-columns', '2']
+      ffmpegArgs: ['-deadline', 'good', '-cpu-used', '2', '-row-mt', '1', '-tile-columns', '2'],
+      // Two-pass lets libvpx plan alt-ref frames with full-file statistics: ~1-10% smaller
+      // at equal or better SSIM. The statistics pass can run at a faster speed.
+      twoPass: { firstPassArgs: ['-cpu-used', '4'] }
     },
     audio: {
       codec: 'libopus',

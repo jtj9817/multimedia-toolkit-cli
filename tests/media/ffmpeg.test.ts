@@ -1,5 +1,6 @@
 import { describe, expect, test, mock } from 'bun:test';
 import { FFmpegWrapper } from '@/media/ffmpeg';
+import { existsSync, writeFileSync } from 'fs';
 
 // Mock config
 const mockConfig = {
@@ -137,6 +138,44 @@ describe('FFmpegWrapper - transcodeVideo', () => {
     });
 
     expect(result.data!.command).not.toContain('-cpu-used');
+  });
+
+  test('WebM preset runs a two-pass encode with a faster statistics pass', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
+      presetKey: 'any-to-webm',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const [firstPass, secondPass] = result.data!.command.split(' && ');
+    expect(firstPass).toContain('-cpu-used 4');
+    expect(firstPass).toMatch(/-pass 1 -passlogfile \S+mat-2pass-/);
+    expect(firstPass).toContain('-an -sn -dn -f null');
+    expect(firstPass).not.toContain('-c:a');
+    expect(secondPass).toContain('-cpu-used 2');
+    expect(secondPass).toMatch(/-pass 2 -passlogfile \S+mat-2pass-/);
+    expect(secondPass).toContain('-c:a libopus');
+    expect(secondPass).toContain('output.webm');
+  });
+
+  test('twoPass: false forces a single pass', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
+      presetKey: 'any-to-webm',
+      twoPass: false,
+      dryRun: true
+    });
+
+    expect(result.data!.command).not.toContain(' && ');
+    expect(result.data!.command).not.toContain('-pass');
+  });
+
+  test('H.264 presets stay single pass', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.mp4', {
+      presetKey: 'any-to-mp4',
+      dryRun: true
+    });
+
+    expect(result.data!.command).not.toContain('-pass');
   });
 
   test('does not apply scaling when resolution is source', async () => {
@@ -372,5 +411,45 @@ describe('FFmpegWrapper - video clipping', () => {
     expect(result.data!.command.indexOf('intermediate.mp4')).toBeLessThan(result.data!.command.indexOf('clip.webm'));
     expect(result.data!.command).toContain('&&');
     expect(result.data!.command).toContain('-c:v libvpx-vp9');
+  });
+});
+
+describe('FFmpegWrapper - two-pass execution', () => {
+  const passLogOf = (args: string[]) => args[args.indexOf('-passlogfile') + 1];
+
+  test('runs statistics pass before the final encode and removes the stats file', async () => {
+    const calls: string[][] = [];
+    const runner = {
+      run: mock(async (args: string[]) => {
+        calls.push(args);
+        if (args[args.indexOf('-pass') + 1] === '1') {
+          writeFileSync(`${passLogOf(args)}-0.log`, 'stats');
+        }
+        return { exitCode: 0, stdout: '', stderr: '' };
+      })
+    } as any;
+    const ffmpeg = new FFmpegWrapper({ config: mockConfig, processRunner: runner });
+
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', { presetKey: 'any-to-webm' });
+
+    expect(result.success).toBe(true);
+    expect(calls).toHaveLength(2);
+    expect(calls[0][calls[0].indexOf('-pass') + 1]).toBe('1');
+    expect(calls[1][calls[1].indexOf('-pass') + 1]).toBe('2');
+    expect(passLogOf(calls[0])).toBe(passLogOf(calls[1]));
+    expect(existsSync(`${passLogOf(calls[0])}-0.log`)).toBe(false);
+  });
+
+  test('stops after a failed statistics pass', async () => {
+    const runner = {
+      run: mock(() => Promise.resolve({ exitCode: 1, stdout: '', stderr: 'boom' }))
+    } as any;
+    const ffmpeg = new FFmpegWrapper({ config: mockConfig, processRunner: runner });
+
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', { presetKey: 'any-to-webm' });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('first pass failed');
+    expect(runner.run).toHaveBeenCalledTimes(1);
   });
 });
