@@ -30,7 +30,7 @@ jobs:
           bun-version: ${{ matrix.bun-version }}
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ matrix.bun-version }}-${{ hashFiles('bun.lock') }}
@@ -59,7 +59,7 @@ jobs:
           bun-version: ${{ matrix.bun-version }}
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ matrix.bun-version }}-${{ hashFiles('bun.lock') }}
@@ -88,7 +88,7 @@ jobs:
           bun-version: ${{ matrix.bun-version }}
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ matrix.bun-version }}-${{ hashFiles('bun.lock') }}
@@ -117,7 +117,7 @@ jobs:
           bun-version: ${{ matrix.bun-version }}
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ matrix.bun-version }}-${{ hashFiles('bun.lock') }}
