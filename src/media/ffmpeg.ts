@@ -282,6 +282,11 @@ export class FFmpegWrapper {
       args.push('-b:v', videoSettings.bitrate);
     }
 
+    // Preset encoder flags are codec-specific; skip them when the codec is overridden.
+    if (preset.video.ffmpegArgs?.length && videoSettings.codec === preset.video.codec) {
+      args.push(...preset.video.ffmpegArgs);
+    }
+
     args.push('-c:a', audioSettings.codec);
     if (audioSettings.bitrate) {
       args.push('-b:a', audioSettings.bitrate);

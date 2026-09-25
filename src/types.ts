@@ -38,6 +38,8 @@ export interface VideoPresetVideoSettings {
   bitrate?: string | null;
   pixelFormat?: string;
   scale: VideoScaleSettings;
+  /** Encoder-specific flags (speed, threading), applied only while `codec` is in use. */
+  ffmpegArgs?: string[];
 }
 
 export interface VideoPresetAudioSettings {

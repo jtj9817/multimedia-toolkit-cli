@@ -23,6 +23,11 @@ describe('Video Transcoding Presets', () => {
     expect(preset.audio.ffmpegArgs).toContain('10');
     expect(preset.audio.ffmpegArgs).toContain('-application');
     expect(preset.audio.ffmpegArgs).toContain('audio');
+
+    // Multi-threaded VP9 encoding
+    expect(preset.video.ffmpegArgs).toEqual(
+      ['-deadline', 'good', '-cpu-used', '2', '-row-mt', '1', '-tile-columns', '2']
+    );
   });
 
   test('any-to-mp4 preset defaults to H.264/AAC', () => {

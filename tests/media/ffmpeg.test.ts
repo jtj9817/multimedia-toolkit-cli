@@ -106,6 +106,39 @@ describe('FFmpegWrapper - transcodeVideo', () => {
     expect(command).toContain('-application audio');
   });
 
+  test('includes VP9 speed and threading flags for WebM', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
+      presetKey: 'any-to-webm',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const command = result.data!.command;
+    expect(command).toContain('-deadline good -cpu-used 2 -row-mt 1 -tile-columns 2');
+  });
+
+  test('omits preset encoder flags when the video codec is overridden', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
+      presetKey: 'any-to-webm',
+      videoCodec: 'libaom-av1',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const command = result.data!.command;
+    expect(command).toContain('-c:v libaom-av1');
+    expect(command).not.toContain('-row-mt');
+  });
+
+  test('does not add VP9 flags to H.264 presets', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.mp4', {
+      presetKey: 'any-to-mp4',
+      dryRun: true
+    });
+
+    expect(result.data!.command).not.toContain('-cpu-used');
+  });
+
   test('does not apply scaling when resolution is source', async () => {
     const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
       presetKey: 'any-to-webm',
