@@ -216,11 +216,14 @@ bun run src/index.ts -i input.mov --video-preset any-to-webm
 
 ### `--resolution <size>`
 
-Override the output resolution for video transcodes.
+Maximum output resolution for video transcodes. The limit follows the source
+orientation (`1080p` caps landscape video at 1920x1080 and portrait video at
+1080x1920), smaller sources are never upscaled, no letterbox bars are added,
+and dimensions are rounded to even numbers.
 
 **Type**: String
 
-**Options**: `source`, `1080p`, `720p`
+**Options**: `source`, `2160p`, `1440p`, `1080p`, `720p`, `480p`
 
 **Default**: From configuration (default: `1080p`)
 
@@ -246,6 +249,46 @@ bun run src/index.ts -i input.mov --video-format webm --video-quality 31
 # Bitrate-based quality
 bun run src/index.ts -i input.mov --video-format mp4 --video-quality 2500k
 ```
+
+---
+
+### `--target-size <MB>`
+
+Keep the transcoded video under a file size (1 MB = 1,000,000 bytes), for
+example an upload limit. The video bitrate is derived from the input duration
+and the audio bitrate; WebM keeps CRF quality and uses the bitrate as a
+ceiling, so simple videos can come out smaller than the target. If the first
+encode overshoots, it is re-encoded once at a proportionally lower bitrate.
+Targets too small for the duration fail with the minimum size that would work.
+Cannot be combined with a `--video-quality` bitrate.
+
+**Type**: Number (megabytes)
+
+**Examples**:
+```bash
+# Fit Discord's 10 MB upload limit
+bun run src/index.ts -i input.mp4 --video-format webm --target-size 10
+
+# Clip and fit each clip under 8 MB
+bun run src/index.ts -i input.mp4 --video-clip 90:150 --video-format webm --target-size 8 -o ./clips
+```
+
+---
+
+### `--single-pass`
+
+Skip two-pass encoding on the WebM preset. Two-pass VP9 gives 1-10% smaller
+files at equal or better quality and takes roughly 2-3x as long.
+
+**Type**: Boolean
+
+**Frame rate handling**: two-pass encodes that target a bitrate (`--target-size`
+or a `--video-quality` bitrate) measure the source's real frame rate from its
+packet timestamps, because variable-frame-rate uploads often declare 60-240 fps
+for ~30 fps video. Constant-frame-rate sources keep their exact rate; variable
+ones are encoded on a grid fine enough for their fastest frame spacing, so no
+frames are dropped. If the frame rate cannot be measured the encode stops with
+an error; `--single-pass` encodes from timestamps instead.
 
 ---
 
@@ -296,8 +339,8 @@ bun run src/index.ts -i video.mp4 --gif-webp-preset webp-lossless -o output.webp
 ### `--video-clip <start:end>`
 
 Create a video clip. Repeat this option to create several clips in one command.
-When paired with `--video-format`, `--video-preset`, `--video-quality`, or
-`--resolution`, the toolkit creates and verifies a source-format clip first,
+When paired with `--video-format`, `--video-preset`, `--video-quality`,
+`--resolution`, or `--target-size`, the toolkit creates and verifies a source-format clip first,
 then transcodes it using the selected video preset.
 
 ```bash

@@ -53,11 +53,13 @@ Multimedia Toolkit is a powerful command-line tool for extracting and converting
 - Preserve or strip metadata (artist, album, cover art)
 
 ### Video Transcoding
-- **Any-to-WebM**: Discord-optimized with VP9 video and Opus audio (default 1080p)
+- **Any-to-WebM**: VP9 video and Opus audio, capped at 1080p; multi-threaded two-pass VP9 encoding
 - **Any-to-MP4**: Universal compatibility with H.264 video and AAC audio
 - **Any-to-MKV**: Flexible container with H.264/H.265 support
-- Resolution scaling with aspect ratio preservation (source, 1080p, 720p)
+- Resolution caps that never upscale, follow portrait/landscape orientation, and never letterbox
 - Quality control via CRF (Constant Rate Factor) or bitrate modes
+- Target file size (e.g. `--target-size 10` for Discord's 10 MB upload limit)
+- Real frame rate measured from packet timestamps, so variable-frame-rate phone/social video hits bitrate and size targets
 - Custom video and audio codec selection
 
 ### GIF/WebP Conversion
@@ -254,8 +256,10 @@ bun run src/index.ts -i video.mp4 -p "my-preset"
 -q, --quality <preset>  Audio quality: speech, music_low, music_medium, music_high, optimized_webm, lossless
 --video-format <fmt>    Video format: webm, mp4, mkv
 --video-preset <name>   Video preset: any-to-webm, any-to-mp4, any-to-mkv
---video-quality <mode>  Video quality mode: crf, bitrate
---resolution <res>      Video resolution: source, 1080p, 720p
+--video-quality <val>   Video quality: CRF number or bitrate like 2500k
+--resolution <res>      Max video resolution: source, 2160p, 1440p, 1080p, 720p, 480p
+--target-size <MB>      Keep video output under this size (e.g. 10 for Discord)
+--single-pass           Skip two-pass encoding (faster WebM, slightly larger files)
 --gif-webp-preset <key> GIF/WebP preset (see presets list)
 ```
 
@@ -461,9 +465,9 @@ bun run src/index.ts -i podcast.mp4 --chapters -f mp3 -q speech -o ./episodes/
 bun run src/index.ts -i long_recording.wav --silence -o ./segments/
 ```
 
-### Convert Video to Discord-Optimized WebM
+### Convert Video to WebM That Fits Discord's 10 MB Limit
 ```bash
-bun run src/index.ts -i video.mp4 --video-format webm --video-preset any-to-webm
+bun run src/index.ts -i video.mp4 --video-format webm --target-size 10
 ```
 
 ### Create Animated GIF from Video
