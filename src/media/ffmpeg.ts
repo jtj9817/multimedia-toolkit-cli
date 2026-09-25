@@ -17,6 +17,7 @@ import type {
   VideoTranscodeOptions,
   VideoTranscodePreset,
   VideoScaleSettings,
+  VideoOutputFormat,
   GifWebpConversionOptions,
   VideoClipOptions,
   VideoClipTranscodeOptions
@@ -33,6 +34,12 @@ const VIDEO_RESOLUTION_MAP: Record<string, { width: number; height: number }> = 
   '1080p': { width: 1920, height: 1080 },
   '720p': { width: 1280, height: 720 },
   '480p': { width: 854, height: 480 }
+};
+// FFmpeg muxer names differ from file extensions ("mkv" is not a valid -f value).
+const VIDEO_MUXER_NAMES: Record<VideoOutputFormat, string> = {
+  webm: 'webm',
+  mp4: 'mp4',
+  mkv: 'matroska'
 };
 
 export class FFmpegWrapper {
@@ -293,7 +300,7 @@ export class FFmpegWrapper {
       args.push('-map_metadata', '-1');
     }
 
-    args.push('-f', preset.container);
+    args.push('-f', VIDEO_MUXER_NAMES[preset.container]);
     args.push('-threads', '0');
     args.push(outputPath);
 

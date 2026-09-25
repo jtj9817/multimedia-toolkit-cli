@@ -63,7 +63,7 @@ describe('FFmpegWrapper - transcodeVideo', () => {
     const command = result.data!.command;
     expect(command).toContain('-c:v libx264');
     expect(command).toContain('-c:a aac');
-    expect(command).toContain('-f mkv');
+    expect(command).toContain('-f matroska');
   });
 
   test('applies resolution scaling filter', async () => {
