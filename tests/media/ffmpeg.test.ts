@@ -74,8 +74,23 @@ describe('FFmpegWrapper - transcodeVideo', () => {
 
     expect(result.success).toBe(true);
     const command = result.data!.command;
-    // 720p is 1280x720
-    expect(command).toContain('scale=1280:720:force_original_aspect_ratio=decrease');
+    // 720p caps the long side at 1280 and the short side at 720 in either orientation
+    expect(command).toContain(
+      "-vf scale='if(gte(iw,ih),min(iw,1280),min(iw,720))':'if(gte(iw,ih),min(ih,720),min(ih,1280))'"
+    );
+    expect(command).toContain('force_original_aspect_ratio=decrease:force_divisible_by=2');
+  });
+
+  test('fit scaling never pads to a letterboxed frame', async () => {
+    const result = await ffmpeg.transcodeVideo('input.mov', 'output.webm', {
+      presetKey: 'any-to-webm',
+      dryRun: true
+    });
+
+    expect(result.success).toBe(true);
+    const command = result.data!.command;
+    expect(command).toContain("min(iw,1920)");
+    expect(command).not.toContain('pad=');
   });
 
   test('includes WebM optimized audio flags', async () => {
@@ -106,15 +121,15 @@ describe('FFmpegWrapper - transcodeVideo', () => {
   test('supports additional resolutions (2160p, 1440p, 480p)', async () => {
     const r2160 = await ffmpeg.transcodeVideo('input.mov', 'output.webm', { resolution: '2160p', dryRun: true });
     expect(r2160.success).toBe(true);
-    expect(r2160.data!.command).toContain('scale=3840:2160:force_original_aspect_ratio=decrease');
+    expect(r2160.data!.command).toContain('min(iw,3840),min(iw,2160)');
 
     const r1440 = await ffmpeg.transcodeVideo('input.mov', 'output.webm', { resolution: '1440p', dryRun: true });
     expect(r1440.success).toBe(true);
-    expect(r1440.data!.command).toContain('scale=2560:1440:force_original_aspect_ratio=decrease');
+    expect(r1440.data!.command).toContain('min(iw,2560),min(iw,1440)');
 
     const r480 = await ffmpeg.transcodeVideo('input.mov', 'output.webm', { resolution: '480p', dryRun: true });
     expect(r480.success).toBe(true);
-    expect(r480.data!.command).toContain('scale=854:480:force_original_aspect_ratio=decrease');
+    expect(r480.data!.command).toContain('min(iw,854),min(iw,480)');
   });
 
   test('supports CRF and bitrate quality modes (webm)', async () => {

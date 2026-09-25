@@ -1371,7 +1371,15 @@ export class FFmpegWrapper {
       return `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
     }
 
-    return `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
+    // "fit" treats the resolution as an upper bound: the box follows the source
+    // orientation (1080p caps portrait video at 1080x1920), smaller sources are
+    // never upscaled, and no letterbox padding is added. Even dimensions keep
+    // yuv420p encoders (libx264, libvpx) happy.
+    const longSide = Math.max(width, height);
+    const shortSide = Math.min(width, height);
+    const maxW = `'if(gte(iw,ih),min(iw,${longSide}),min(iw,${shortSide}))'`;
+    const maxH = `'if(gte(iw,ih),min(ih,${shortSide}),min(ih,${longSide}))'`;
+    return `scale=${maxW}:${maxH}:force_original_aspect_ratio=decrease:force_divisible_by=2`;
   }
 
   /**
